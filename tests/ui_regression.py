@@ -56,6 +56,14 @@ def automation(exe,case):
                     try:mouse(rowht*1.5);assert db.execute("select count(*) from prompts where last_used_at is not null").fetchone()[0]==0
                     finally:u.CloseClipboard()
                     time.sleep(.6);mouse(rowht*1.5);assert clipboard()==body
+                    if os.environ.get("PROMPT_TEST_NOTEPAD"):
+                        note=subprocess.Popen(["notepad.exe"])
+                        try:
+                            top=until(lambda:byprefix(note.pid,"Notepad"));native=until(lambda:u.FindWindowExW(top,0,"Edit",None))
+                            u.SendMessageW(native,0x302,0,0);assert read(native)==body
+                            u.SendMessageW(native,0xB9,0,0);u.SendMessageW(top,16,0,0);note.wait(5)
+                        finally:
+                            if note.poll() is None:note.terminate();note.wait()
                     mouse(rowht*1.5,0x203);assert clipboard()==body,"double-click copied a different row"
                     time.sleep(.6);mouse(rowht*3);assert clipboard()==body,"blank row copied text"
             elif case=="ime":

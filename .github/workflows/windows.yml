@@ -23,6 +23,7 @@ jobs:
       - name: Exercise the release executable
         shell: pwsh
         run: |
+          $env:PROMPT_TEST_NOTEPAD='1'
           python -m pip install pywin32
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           python tests/desktop_probe.py dist/PromptManager/PromptManager.exe
@@ -34,3 +35,7 @@ jobs:
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           }
 
+      - name: Probe foreground fullscreen on the test desktop
+        shell: pwsh
+        continue-on-error: true
+        run: python tests/fullscreen_probe.py dist/PromptManager/PromptManager.exe

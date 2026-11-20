@@ -1,0 +1,108 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "dpi": 144,
+  "mode": "x64 Release; warm OS cache; independent isolated instances",
+  "empty_ms": 106.17,
+  "timing": {
+    "first": {
+      "n": 20,
+      "median_ms": 211.45,
+      "p95_ms": 231.72
+    },
+    "reopen": {
+      "n": 20,
+      "median_ms": 190.75,
+      "p95_ms": 214.06
+    },
+    "search": {
+      "n": 36,
+      "median_ms": 23.11,
+      "p95_ms": 43.22
+    }
+  },
+  "idle": {
+    "background": {
+      "cycles": [],
+      "private_mib": 1.84,
+      "working_set_mib": 12.62,
+      "cpu_s": 0.0,
+      "gdi": 10,
+      "user": 10
+    },
+    "open": {
+      "cycles": [
+        [
+          1,
+          5.7265625,
+          23.49609375,
+          0.234375,
+          36,
+          47
+        ]
+      ],
+      "private_mib": 5.63,
+      "working_set_mib": 23.64,
+      "cpu_s": 0.0,
+      "gdi": 34,
+      "user": 42
+    },
+    "closed": {
+      "cycles": [
+        [
+          1,
+          4.30859375,
+          21.76953125,
+          0.21875,
+          25,
+          23
+        ]
+      ],
+      "private_mib": 2.79,
+      "working_set_mib": 20.91,
+      "cpu_s": 0.0,
+      "gdi": 25,
+      "user": 22
+    },
+    "closed30": {
+      "cycles": [
+        [
+          1,
+          4.46875,
+          21.69140625,
+          0.140625,
+          25,
+          23
+        ],
+        [
+          10,
+          3.984375,
+          21.76171875,
+          1.453125,
+          25,
+          23
+        ],
+        [
+          20,
+          5.14453125,
+          22.58203125,
+          2.96875,
+          25,
+          23
+        ],
+        [
+          30,
+          5.1015625,
+          22.87890625,
+          4.828125,
+          25,
+          23
+        ]
+      ],
+      "private_mib": 4.09,
+      "working_set_mib": 21.96,
+      "cpu_s": 0.0,
+      "gdi": 25,
+      "user": 22
+    }
+  }
+}
