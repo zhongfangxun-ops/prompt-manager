@@ -1,6 +1,7 @@
 #pragma once
 #include "platform/App.h"
 #include "ui/Style.h"
+#include "ui/RowCopy.h"
 #include "ui/PromptEditor.h"
 #include <commctrl.h>
 #include <array>
@@ -9,7 +10,7 @@ struct LibraryWindow {
     HWND h{};PromptStore store;Palette colors;UINT dpi=96;
     std::array<HFONT,4> fonts{};HBRUSH paperBrush{},railBrush{};
     std::vector<Tag> tags;std::vector<Summary> rows;std::optional<Prompt> current;
-    Id category{},copied{};std::wstring notice;EditorState editor;bool editing=false,ready=false,loading=false;
+    Id category{},copied{};std::wstring notice;RowCopyGesture rowGesture;HWND composing{};EditorState editor;bool editing=false,ready=false,loading=false;
     int width=900,height=580,split=302,visibleTags=0;
     explicit LibraryWindow(const std::filesystem::path& path):store(path){}
     ~LibraryWindow();

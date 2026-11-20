@@ -108,6 +108,7 @@ bool LibraryWindow::keys(MSG& m){
     if(m.hwnd!=h&&!IsChild(h,m.hwnd))return false;
     try{
         if(m.message==WM_KEYDOWN){
+            if(composing==m.hwnd)return false;
             bool ctrl=GetKeyState(VK_CONTROL)<0;
             if(m.wParam==VK_ESCAPE){if(editing)cancelEdit();else SendMessageW(h,WM_CLOSE,0,0);return true;}
             if(ctrl&&m.wParam=='S'&&editing){save();return true;}

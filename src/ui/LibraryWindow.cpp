@@ -1,6 +1,7 @@
 #include "ui/LibraryWindow.h"
 #include "platform/Clipboard.h"
 #include <dwmapi.h>
+#include <shellscalingapi.h>
 namespace {
 constexpr wchar_t className[]=L"PromptManager.Library";
 LRESULT CALLBACK rowMouse(HWND h,UINT msg,WPARAM w,LPARAM l,UINT_PTR,DWORD_PTR data){
@@ -10,12 +11,21 @@ LRESULT CALLBACK rowMouse(HWND h,UINT msg,WPARAM w,LPARAM l,UINT_PTR,DWORD_PTR d
         if(x>=r.right-view.px(57)){
             LRESULT hit=SendMessageW(h,LB_ITEMFROMPOINT,0,l);
             if(!HIWORD(hit)&&LOWORD(hit)<view.rows.size()){
+                RECT actual{};SendMessageW(h,LB_GETITEMRECT,LOWORD(hit),(LPARAM)&actual);
+                POINT point{x,(short)HIWORD(l)};
+                if(!view.rowGesture.accepts(msg,point,actual,GetTickCount(),GetDoubleClickTime(),GetSystemMetrics(SM_CXDOUBLECLK),GetSystemMetrics(SM_CYDOUBLECLK)))return 0;
                 try{view.copy(view.rows[LOWORD(hit)].id);}catch(const std::exception& e){view.flash(wideError(e));}
                 return 0;
             }
         }
     }
     return DefSubclassProc(h,msg,w,l);
+}
+LRESULT CALLBACK inputComposition(HWND control,UINT msg,WPARAM w,LPARAM l,UINT_PTR,DWORD_PTR data){
+    auto& view=*reinterpret_cast<LibraryWindow*>(data);
+    if(msg==WM_IME_STARTCOMPOSITION)view.composing=control;
+    if((msg==WM_IME_ENDCOMPOSITION||msg==WM_KILLFOCUS)&&view.composing==control)view.composing=nullptr;
+    return DefSubclassProc(control,msg,w,l);
 }
 LRESULT CALLBACK proc(HWND h,UINT msg,WPARAM w,LPARAM l){
     auto* v=reinterpret_cast<LibraryWindow*>(GetWindowLongPtrW(h,GWLP_USERDATA));
@@ -41,7 +51,7 @@ LRESULT CALLBACK proc(HWND h,UINT msg,WPARAM w,LPARAM l){
         case WM_CLOSE:if(!v->editing||v->leaveEdit())DestroyWindow(h);return 0;
         case WM_NCDESTROY:PostThreadMessageW(GetCurrentThreadId(),WM_NULL,0,0);SetWindowLongPtrW(h,GWLP_USERDATA,0);return DefWindowProcW(h,msg,w,l);
         }
-    }catch(const std::exception& e){MessageBoxW(h,wideError(e).c_str(),L"提示词",MB_ICONERROR);if(msg==WM_CREATE)return -1;}
+    }catch(const std::exception& e){MessageBoxW(h,wideError(e).c_str(),L"提示词",MB_ICONERROR);if(msg==WM_CREATE)return -1;return 0;}
     return DefWindowProcW(h,msg,w,l);
 }
 std::unique_ptr<LibraryWindow> active;
@@ -52,7 +62,7 @@ void LibraryWindow::create(){
     auto add=[&](int id,const wchar_t* cls,const wchar_t* title,DWORD style){
         HWND c=CreateWindowExW(0,cls,title,WS_CHILD|WS_TABSTOP|style,0,0,10,10,h,(HMENU)(INT_PTR)id,GetModuleHandleW(nullptr),nullptr);
         if(!c)throw std::runtime_error("无法创建窗口控件。");
-        if(!wcscmp(cls,L"EDIT")){SendMessageW(c,EM_SETLIMITTEXT,0x7ffffffe,0);SendMessageW(c,EM_SETMARGINS,EC_LEFTMARGIN|EC_RIGHTMARGIN,MAKELPARAM(2,2));}
+        if(!wcscmp(cls,L"EDIT")){SetWindowSubclass(c,inputComposition,1,(DWORD_PTR)this);SendMessageW(c,EM_SETLIMITTEXT,0x7ffffffe,0);SendMessageW(c,EM_SETMARGINS,EC_LEFTMARGIN|EC_RIGHTMARGIN,MAKELPARAM(2,2));}
         return c;
     };
     auto btn=[&](int id,const wchar_t* s){return add(id,L"BUTTON",s,BS_OWNERDRAW);};
@@ -118,7 +128,7 @@ HWND openLibrary(HWND){
     wc.hIcon=LoadIconW(wc.hInstance,MAKEINTRESOURCEW(100));wc.lpszClassName=className;RegisterClassW(&wc);
     POINT cursor;GetCursorPos(&cursor);auto m=MonitorFromPoint(cursor,MONITOR_DEFAULTTONEAREST);
     MONITORINFO mi{sizeof(mi)};GetMonitorInfoW(m,&mi);auto r=mi.rcWork;
-    UINT dpi=GetDpiForSystem();int w=std::min<int>(r.right-r.left,MulDiv(900,dpi,96)),ht=std::min<int>(r.bottom-r.top,MulDiv(580,dpi,96));
+    UINT dpi=96,dy=96;GetDpiForMonitor(m,MDT_EFFECTIVE_DPI,&dpi,&dy);int w=std::min<int>(r.right-r.left,MulDiv(900,dpi,96)),ht=std::min<int>(r.bottom-r.top,MulDiv(580,dpi,96));
     auto h=CreateWindowExW(WS_EX_CONTROLPARENT,className,L"提示词",WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN,r.left+(r.right-r.left-w)/2,r.top+(r.bottom-r.top-ht)/2,w,ht,nullptr,nullptr,wc.hInstance,active.get());
     if(!h){active.reset();throw std::runtime_error("无法打开管理窗口。");}return h;
 }

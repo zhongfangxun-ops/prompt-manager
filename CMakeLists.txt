@@ -31,3 +31,4 @@ target_sources(PromptManager PRIVATE src/ui/PromptEditor.cpp src/platform/Clipbo
 app_test(clipboard src/platform/Clipboard.cpp)
 target_sources(PromptManager PRIVATE src/ui/LibraryPaint.cpp src/ui/LibraryActions.cpp)
 target_link_libraries(PromptManager PRIVATE msimg32)
+app_test(gesture)
