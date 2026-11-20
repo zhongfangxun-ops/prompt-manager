@@ -1,5 +1,6 @@
 #include "platform/App.h"
 #include <shellapi.h>
+#include "shell/EdgeButton.h"
 #include <commctrl.h>
 namespace {
 constexpr UINT trayCallback=WM_APP+5;
@@ -46,11 +47,11 @@ LRESULT CALLBACK shellProc(HWND h,UINT msg,WPARAM w,LPARAM l){
         tray.uFlags=NIF_ICON|NIF_TIP|NIF_MESSAGE;tray.uCallbackMessage=trayCallback;
         tray.hIcon=LoadIconW(nullptr,IDI_APPLICATION);lstrcpyW(tray.szTip,L"提示词 · 打开提示词库");
         Shell_NotifyIconW(NIM_ADD,&tray);
-        visible=readSetting(L"Visible",L"1")==L"1";return 0;
+        visible=readSetting(L"Visible",L"1")==L"1";createEdge(h,visible);return 0;
     case OpenMessage:
         if(!IsWindow(manager)) {try{manager=openLibrary(h);}catch(const std::exception& e){MessageBoxW(h,wideError(e).c_str(),L"打开提示词库失败",MB_ICONERROR);}}
         if(IsWindow(manager)){ShowWindow(manager,IsIconic(manager)?SW_RESTORE:SW_SHOW);SetForegroundWindow(manager);}return 0;
-    case EdgeMessage: visible=!visible;writeSetting(L"Visible",visible?L"1":L"0");SendMessageW(h,RefreshEdge,0,0);return 0;
+    case RefreshEdge:refreshEdge(visible);return 0; case EdgeMessage: visible=!visible;writeSetting(L"Visible",visible?L"1":L"0");SendMessageW(h,RefreshEdge,0,0);return 0;
     case trayCallback:
         if(l==WM_LBUTTONUP) SendMessageW(h,OpenMessage,0,0);
         if(l==WM_RBUTTONUP) menu(h);
@@ -58,7 +59,7 @@ LRESULT CALLBACK shellProc(HWND h,UINT msg,WPARAM w,LPARAM l){
     case WM_CLOSE:case ExitMessage:
         if(IsWindow(manager)){SendMessageW(manager,WM_CLOSE,0,0);if(IsWindow(manager))return 0;}
         DestroyWindow(h);return 0;
-    case WM_DESTROY:Shell_NotifyIconW(NIM_DELETE,&tray);PostQuitMessage(0);return 0;
+    case WM_DESTROY:closeEdge();Shell_NotifyIconW(NIM_DELETE,&tray);PostQuitMessage(0);return 0;
     }return DefWindowProcW(h,msg,w,l);
 }
 }
