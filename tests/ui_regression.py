@@ -58,6 +58,12 @@ def automation(exe,case):
                     time.sleep(.6);mouse(rowht*1.5);assert clipboard()==body
                     mouse(rowht*1.5,0x203);assert clipboard()==body,"double-click copied a different row"
                     time.sleep(.6);mouse(rowht*3);assert clipboard()==body,"blank row copied text"
+            elif case=="ime":
+                cmd(103);text(ctrl(110),"草稿");tag=ctrl(112);text(tag,"文字")
+                u.SendMessageW(tag,0x10D,0,0);u.PostMessageW(tag,0x100,13,0);time.sleep(.08)
+                assert read(tag)=="文字","candidate confirmation cleared tag"
+                u.PostMessageW(tag,0x100,27,0);time.sleep(.08);assert u.IsWindow(w) and not byprefix(p.pid,"#32770")
+                u.SendMessageW(tag,0x10E,0,0);text(ctrl(111),"已保存");cmd(114)
             elif case=="flow":
                 cmd(130);text(ctrl(101),"无匹配");assert u.SendMessageW(ctrl(102),0x18b,0,0)==0 and not read(ctrl(106))
                 cmd(109);text(ctrl(101),"保留术语");assert read(ctrl(106))==body
@@ -67,6 +73,10 @@ def automation(exe,case):
                     cmd(pos);assert u.SendMessageW(ctrl(102),0x18b,0,0)==1 and read(ctrl(106))==body
                 u.SendMessageW(w,16,0,0);w=open_view();assert read(ctrl(101))=="" and u.SendMessageW(ctrl(102),0x18b,0,0)==2
                 text(ctrl(101),"保留术语");assert read(ctrl(106))==body
+                u.PostMessageW(w,273,116,0)
+                confirm=until(lambda:byprefix(p.pid,"#32770"));yes=until(lambda:u.GetDlgItem(confirm,6))
+                u.PostMessageW(yes,0xF5,0,0);until(lambda:not u.IsWindow(confirm))
+                until(lambda: db.execute("select count(*) from prompts").fetchone()[0]==1)
             u.SendMessageW(shell,EXIT,0,0);assert p.wait(5)==0
         finally:
             if db:db.close()
