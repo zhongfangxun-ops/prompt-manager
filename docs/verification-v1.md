@@ -27,7 +27,7 @@ Windows 11 10.0.26200，144 DPI（150%），UCRT64 Release x64。使用临时资
 - 用含中文和空格的独立目录运行发布 exe，并从 PATH 移除 MSYS2。真实窗口走过新建、加两个标签、分类与全文搜索、编辑、重新打开和删除。
 - 专门锁住 SQLite 后从关闭对话框选择保存，确认写入报错后草稿仍在，解除锁后可直接保存。给标签框发送中文输入法组合消息，验证 Enter 和 Esc 交由输入法处理。
 - Windows 登录启动开关采用临时测试项核对写入和移除；托盘入口、二次启动复用、关闭回后台、退出进程和手动隐藏胶囊后的恢复均有检查。实际注销登录未做。
-- Windows CI 使用独立虚拟机验证真实剪贴板、占用失败后的重试、复制后的精确文本和双击保护。可在[仓库的 Windows 构建记录](https://github.com/zhongfangxun-ops/prompt-manager/actions/workflows/windows.yml)查看每次提交的结果。
+- Windows CI 使用独立虚拟机验证真实剪贴板、占用失败后的重试、复制后的精确文本和双击保护。发布提交还通过了跨进程粘贴到 Windows 记事本后逐字符核对，以及真实前台测试窗口全屏、恢复、手动隐藏优先的检查。[该次 Windows CI](https://github.com/zhongfangxun-ops/prompt-manager/actions/runs/44796988804)。可在[仓库的 Windows 构建记录](https://github.com/zhongfangxun-ops/prompt-manager/actions/workflows/windows.yml)查看每次提交的结果。
 - 抽查发布 exe 的 PE 导入列表，运行依赖来自 Windows 系统。便携包随附静态链接组件的许可证。
 - [管理窗口实拍](images/library.png)与[编辑窗口实拍](images/editor.png)使用合成示例数据。[胶囊样图](images/edge.png)以实际绘制代码生成普通态、悬停态，并合成在三种测试背景上。
 
