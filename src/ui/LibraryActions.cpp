@@ -15,9 +15,10 @@ void LibraryWindow::reloadTags(){
     if(std::none_of(tags.begin(),tags.end(),[&](auto& t){return t.id==category;}))category=0;
 }
 void LibraryWindow::showDetail(){
+    layout();
     SetWindowTextW(item(Body),current?windowsLines(current->body).c_str():L"");
     SetWindowTextW(item(EmptyAction),category||!valueOf(item(Search)).empty()?L"清除筛选":L"新建第一条提示词");
-    layout();InvalidateRect(item(List),nullptr,TRUE);
+    InvalidateRect(item(List),nullptr,TRUE);
 }
 void LibraryWindow::pick(int i){
     current=i>=0&&i<(int)rows.size()?store.get(rows[i].id):std::nullopt;showDetail();

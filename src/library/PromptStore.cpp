@@ -35,7 +35,7 @@ std::wstring trimmed(std::wstring_view s){
 Id utcMillis(){return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();}
 PromptStore::PromptStore(const std::filesystem::path& path){
     try{
-        verify(db,sqlite3_open16(path.c_str(),&db));sqlite3_busy_timeout(db,1500);
+        auto opened=sqlite3_open16(path.c_str(),&db);verify(db,opened);sqlite3_busy_timeout(db,1500);
         sql(db,"PRAGMA foreign_keys=ON");int version;
         {Statement q(db,"PRAGMA user_version");q.next();version=q.id();}
         if(version>1)throw std::runtime_error("此资料库来自较新版本，请使用更新的提示词管理器。");

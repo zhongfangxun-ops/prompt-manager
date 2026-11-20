@@ -45,7 +45,7 @@ LRESULT CALLBACK shellProc(HWND h,UINT msg,WPARAM w,LPARAM l){
         taskbarCreated=RegisterWindowMessageW(L"TaskbarCreated");
         tray.cbSize=sizeof(tray);tray.hWnd=h;tray.uID=1;
         tray.uFlags=NIF_ICON|NIF_TIP|NIF_MESSAGE;tray.uCallbackMessage=trayCallback;
-        tray.hIcon=LoadIconW(nullptr,IDI_APPLICATION);lstrcpyW(tray.szTip,L"提示词 · 打开提示词库");
+        tray.hIcon=LoadIconW(GetModuleHandleW(nullptr),MAKEINTRESOURCEW(100));lstrcpyW(tray.szTip,L"提示词 · 打开提示词库");
         Shell_NotifyIconW(NIM_ADD,&tray);
         visible=readSetting(L"Visible",L"1")==L"1";createEdge(h,visible);return 0;
     case OpenMessage:

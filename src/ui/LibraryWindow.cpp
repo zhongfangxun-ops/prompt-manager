@@ -24,7 +24,7 @@ LRESULT CALLBACK proc(HWND h,UINT msg,WPARAM w,LPARAM l){
     try{
         switch(msg){
         case WM_CREATE:v->create();return 0;
-        case WM_SIZE:if(v->ready)v->layout();return 0;
+        case WM_SIZE:if(v->ready && (v->width!=MulDiv(LOWORD(l),96,v->dpi)||v->height!=MulDiv(HIWORD(l),96,v->dpi)))v->layout();return 0;
         case WM_GETMINMAXINFO:{auto m=reinterpret_cast<MINMAXINFO*>(l);auto mon=MonitorFromWindow(h,MONITOR_DEFAULTTONEAREST);MONITORINFO mi{sizeof(mi)};GetMonitorInfoW(mon,&mi);m->ptMinTrackSize={std::min(v->px(650),int(mi.rcWork.right-mi.rcWork.left)),std::min(v->px(460),int(mi.rcWork.bottom-mi.rcWork.top))};return 0;}
         case WM_DPICHANGED:{v->dpi=HIWORD(w);v->style();auto r=(RECT*)l;SetWindowPos(h,nullptr,r->left,r->top,r->right-r->left,r->bottom-r->top,SWP_NOZORDER);v->layout();return 0;}
         case WM_SETTINGCHANGE:case WM_THEMECHANGED:if(v->ready){v->style();v->layout();}break;
@@ -65,7 +65,7 @@ void LibraryWindow::create(){
     add(TitleInput,L"EDIT",L"",ES_AUTOHSCROLL);add(BodyInput,L"EDIT",L"",ES_MULTILINE|ES_WANTRETURN|ES_AUTOVSCROLL|WS_VSCROLL);
     add(TagInput,L"EDIT",L"",ES_AUTOHSCROLL);SendMessageW(item(TagInput),EM_SETCUEBANNER,TRUE,(LPARAM)L"输入新标签，回车添加");
     btn(TagMenu,L"选择标签");btn(Save,L"保存");btn(Cancel,L"取消");
-    style();ready=true;reloadTags();reload();layout();SetFocus(item(Search));
+    style();ready=true;reloadTags();reload();SetFocus(item(Search));
 }
 void LibraryWindow::style(){
     colors=Palette();DeleteObject(paperBrush);DeleteObject(railBrush);
@@ -82,7 +82,7 @@ void LibraryWindow::layout(){
     split=std::clamp(width*35/100,234,344);int x=split+26,rw=width-x-26;
     auto move=[&](int id,int a,int b,int c,int d,bool visible){
         HWND ctrl=item(id);
-        if(visible){MoveWindow(ctrl,px(a),px(b),std::max(1,px(c)),std::max(1,px(d)),TRUE);ShowWindow(ctrl,SW_SHOWNA);}
+        if(visible){SetWindowPos(ctrl,nullptr,px(a),px(b),std::max(1,px(c)),std::max(1,px(d)),SWP_NOZORDER|SWP_NOACTIVATE|SWP_SHOWWINDOW);}
         else ShowWindow(ctrl,SW_HIDE);
     };
     move(Search,44,88,split-75,23,true);

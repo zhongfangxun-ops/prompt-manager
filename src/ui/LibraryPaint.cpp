@@ -6,7 +6,11 @@ std::wstring joined(const std::vector<std::wstring>& tags){
 void LibraryWindow::paint(){
     PAINTSTRUCT ps;auto dc=BeginPaint(h,&ps);
     fill(dc,ps.rcPaint,colors.paper);fill(dc,rect(0,60,split,height-60),colors.rail);
-    fill(dc,rect(0,0,width,60),colors.bar);
+    auto band=rect(0,0,width,60);
+    auto vertex=[](int x,int y,COLORREF c){return TRIVERTEX{x,y,COLOR16(GetRValue(c)*257),COLOR16(GetGValue(c)*257),COLOR16(GetBValue(c)*257),0};};
+    TRIVERTEX stops[]={vertex(0,0,colors.paper),vertex(band.right,band.bottom,colors.bar)};
+    GRADIENT_RECT slice{0,1};GradientFill(dc,stops,2,&slice,1,GRADIENT_FILL_RECT_V);
+    fill(dc,rect(0,0,width,1),colors.paper);
     fill(dc,rect(0,59,width,1),colors.line);fill(dc,rect(split-1,60,1,height-60),colors.line);
     auto frame=[&](int x,int y,int w,int ht){rounded(dc,rect(x,y,w,ht),px(12),colors.paper,colors.line);};
     rounded(dc,rect(19,13,34,34),px(13),colors.accent,colors.accent);
@@ -31,7 +35,7 @@ void LibraryWindow::paint(){
         label(dc,filtered?L"没有匹配的提示词":L"还没有提示词",rect(x,141,rw,47),fonts[2],colors.ink);
     }
     if(!notice.empty()){
-        int w=std::min(width-160,320);auto r=rect(width-w-20,height-53,w,36);rounded(dc,r,px(12),colors.tint,colors.line);
+        int w=std::min(width-430,240);auto r=rect(185,16,w,30);rounded(dc,r,px(12),colors.tint,colors.line);
         label(dc,notice,r,fonts[1],colors.accent,DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS);
     }
     EndPaint(h,&ps);
