@@ -70,7 +70,7 @@ def idle(exe,base,root):
             for name,p in group:series[name].append(snapshot(psutil.Process(p.pid)))
             if i<60:time.sleep(1)
         for name,s in series.items():
-            reports[name].update(private_mib=round(statistics.median(v[0] for v in s),2),working_set_mib=round(statistics.median(v[1] for v in s),2),cpu_s=round(s[-1][2]-s[0][2],4),gdi=s[-1][3],user=s[-1][4])
+            reports[name].update(private_mib=round(statistics.median(v[0] for v in s),2),working_set_mib=round(statistics.median(v[1] for v in s),2),cpu_s=round(s[-1][2]-s[0][2],4),gdi=s[-1][3],user=s[-1][4],edge_visible=bool(u.IsWindowVisible(byprefix(next(p.pid for k,p in group if k==name),"PromptManager.Edge"))))
     finally:
         for _,p in group:
             if p.poll() is None:

@@ -1,6 +1,10 @@
 #include "shell/Placement.h"
 #include <stdexcept>
 int main() {
+    RECT screen{0, 0, 2560, 1600};
+    if (coversMonitor({-11, -11, 2571, 1611}, screen, WS_OVERLAPPEDWINDOW, false) ||
+        !coversMonitor(screen, screen, WS_POPUP, false))
+        throw std::runtime_error("framed desktop overscan");
     RECT area{-1440, 0, 0, 860};
     auto p = resolveAnchor(area, {1, 12000}, 40, 60);
     if (p.x != -40 || p.y != 800 || shouldShow(false, false) || shouldShow(true, true) ||

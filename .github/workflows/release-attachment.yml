@@ -33,5 +33,5 @@ jobs:
           package="PromptManager-${TAG#v}-windows-x64.zip"
           gh api "repos/$GH_REPO/git/blobs/$BLOB" --jq .content | base64 -d > "$package"
           echo "$DIGEST  $package" | sha256sum --check
-          gh release upload "$TAG" "$package"
+          gh release upload "$TAG" "$package" --clobber
 

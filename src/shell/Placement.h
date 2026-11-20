@@ -20,3 +20,12 @@ inline Anchor nearestAnchor(RECT r, POINT pos, int w, int h) {
     int side = std::min_element(dist.begin(), dist.end()) - dist.begin();
     return {side, side < 2 ? MulDiv(y, 10000, dy) : MulDiv(x, 10000, dx)};
 }
+
+inline bool coversMonitor(RECT r, RECT m, LONG_PTR style, bool zoomed) {
+    const bool framed = (style & WS_CAPTION) == WS_CAPTION;
+    const bool extendedFrame =
+        r.left < m.left - 1 || r.right > m.right + 1 || r.top < m.top - 1 || r.bottom > m.bottom + 1;
+    if (framed && (zoomed || extendedFrame))
+        return false;
+    return r.left <= m.left && r.right >= m.right && r.top <= m.top && r.bottom >= m.bottom;
+}

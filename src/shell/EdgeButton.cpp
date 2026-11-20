@@ -37,13 +37,11 @@ bool full() {
         return false;
     if (MonitorFromWindow(f, MONITOR_DEFAULTTONEAREST) != monitor)
         return false;
-    if (IsZoomed(f) && (GetWindowLongPtrW(f, GWL_STYLE) & WS_CAPTION))
-        return false;
     RECT r{};
     if (FAILED(DwmGetWindowAttribute(f, DWMWA_EXTENDED_FRAME_BOUNDS, &r, sizeof(r))))
         GetWindowRect(f, &r);
     RECT m = info(monitor).rcMonitor;
-    return r.left <= m.left && r.right >= m.right && r.top <= m.top && r.bottom >= m.bottom;
+    return coversMonitor(r, m, GetWindowLongPtrW(f, GWL_STYLE), IsZoomed(f));
 }
 void visibility() {
     bool display = shouldShow(wanted, full());
