@@ -38,3 +38,4 @@ inline std::wstring wideError(const std::exception& e) {
 HWND openLibrary(HWND shell);
 bool libraryKeys(HWND library,MSG& message);
 int runDesktop();
+void releaseLibrary();

@@ -75,7 +75,7 @@ int runDesktop(){
     RegisterClassW(&wc);auto h=CreateWindowW(name.c_str(),L"",WS_POPUP,0,0,0,0,nullptr,nullptr,wc.hInstance,nullptr);
     if(!h) throw std::runtime_error("Cannot initialize desktop shell");
     MSG msg;while(GetMessageW(&msg,nullptr,0,0)>0){
-        if(IsWindow(manager)&&libraryKeys(manager,msg)) continue;
+        if(manager && !IsWindow(manager)){manager=nullptr;releaseLibrary();} if(IsWindow(manager)&&libraryKeys(manager,msg)) continue;
         TranslateMessage(&msg);DispatchMessageW(&msg);
-    }CloseHandle(lock);return 0;
+    }releaseLibrary();CloseHandle(lock);return 0;
 }
