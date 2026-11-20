@@ -2,107 +2,118 @@
   "os": "Windows-11-10.0.26200-SP0",
   "dpi": 144,
   "mode": "x64 Release; warm OS cache; independent isolated instances",
-  "empty_ms": 106.17,
+  "empty_ms": 83.3,
   "timing": {
     "first": {
       "n": 20,
-      "median_ms": 211.45,
-      "p95_ms": 231.72
+      "median_ms": 200.53,
+      "p95_ms": 221.67
     },
     "reopen": {
       "n": 20,
-      "median_ms": 190.75,
-      "p95_ms": 214.06
+      "median_ms": 172.57,
+      "p95_ms": 187.2
     },
     "search": {
       "n": 36,
-      "median_ms": 23.11,
-      "p95_ms": 43.22
+      "median_ms": 19.44,
+      "p95_ms": 28.84
     }
   },
   "idle": {
     "background": {
       "cycles": [],
-      "private_mib": 1.84,
-      "working_set_mib": 12.62,
+      "private_mib": 1.86,
+      "working_set_mib": 12.61,
       "cpu_s": 0.0,
       "gdi": 10,
-      "user": 10
+      "user": 10,
+      "edge_visible": false
     },
     "open": {
       "cycles": [
         [
           1,
           5.7265625,
-          23.49609375,
-          0.234375,
+          23.14453125,
+          0.140625,
           36,
           47
         ]
       ],
-      "private_mib": 5.63,
-      "working_set_mib": 23.64,
+      "private_mib": 5.6,
+      "working_set_mib": 23.61,
       "cpu_s": 0.0,
       "gdi": 34,
-      "user": 42
+      "user": 42,
+      "edge_visible": false
     },
     "closed": {
       "cycles": [
         [
           1,
-          4.30859375,
-          21.76953125,
-          0.21875,
+          3.78125,
+          21.5078125,
+          0.15625,
           25,
           23
         ]
       ],
-      "private_mib": 2.79,
-      "working_set_mib": 20.91,
+      "private_mib": 2.83,
+      "working_set_mib": 20.87,
       "cpu_s": 0.0,
       "gdi": 25,
-      "user": 22
+      "user": 22,
+      "edge_visible": false
     },
     "closed30": {
       "cycles": [
         [
           1,
-          4.46875,
-          21.69140625,
-          0.140625,
+          4.29296875,
+          21.39453125,
+          0.109375,
           25,
           23
         ],
         [
           10,
-          3.984375,
-          21.76171875,
-          1.453125,
+          3.9140625,
+          21.625,
+          1.15625,
           25,
           23
         ],
         [
           20,
-          5.14453125,
-          22.58203125,
-          2.96875,
+          5.1015625,
+          23.06640625,
+          2.5,
           25,
           23
         ],
         [
           30,
-          5.1015625,
-          22.87890625,
-          4.828125,
+          4.1875,
+          21.9921875,
+          4.109375,
           25,
           23
         ]
       ],
-      "private_mib": 4.09,
-      "working_set_mib": 21.96,
+      "private_mib": 4.05,
+      "working_set_mib": 21.82,
       "cpu_s": 0.0,
       "gdi": 25,
-      "user": 22
+      "user": 22,
+      "edge_visible": false
     }
+  },
+  "visible_edge_check": {
+    "desktop": "isolated Windows desktop; native edge window visible",
+    "sample_seconds": 15,
+    "private_mib": 1.82,
+    "working_set_mib": 11.03,
+    "cpu_s": 0.0
   }
 }
