@@ -9,58 +9,143 @@ std::wstring joined(const std::vector<std::wstring> &tags) {
     }
     return s;
 }
+void backdrop(HDC dc, RECT bounds, const Palette &palette) {
+    if (palette.contrast) {
+        fill(dc, bounds, palette.paper);
+        return;
+    }
+    using namespace Gdiplus;
+    Graphics g(dc);
+    float w = float(bounds.right), h = float(bounds.bottom);
+    RectF area(0, 0, w, h);
+    LinearGradientBrush sky(area, Color(255, 226, 235, 251), Color(255, 235, 241, 249), 32.f);
+    g.FillRectangle(&sky, area);
+    auto light = [&](float x, float y, float rx, float ry, Color glow) {
+        GraphicsPath halo;
+        halo.AddEllipse(x - rx, y - ry, 2 * rx, 2 * ry);
+        PathGradientBrush brush(&halo);
+        brush.SetCenterPoint(PointF(x, y));
+        brush.SetCenterColor(glow);
+        Color transparent(0, glow.GetR(), glow.GetG(), glow.GetB());
+        int count = 1;
+        brush.SetSurroundColors(&transparent, &count);
+        g.FillPath(&brush, &halo);
+    };
+    light(.28f * w, .06f * h, .55f * w, .85f * h, Color(176, 194, 186, 244));
+    light(.76f * w, -.12f * h, .49f * w, .88f * h, Color(190, 196, 235, 250));
+}
+void copyGlyph(HDC dc, RECT r, int unit, COLORREF color) {
+    using namespace Gdiplus;
+    Graphics g(dc);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    float scale = unit / 16.f, x = (r.left + r.right - unit) / 2.f, y = (r.top + r.bottom - unit) / 2.f;
+    g.TranslateTransform(x, y);
+    g.ScaleTransform(scale, scale);
+    Pen pen(tone(color), 1.35f);
+    pen.SetLineJoin(LineJoinRound);
+    g.DrawRectangle(&pen, 5.f, 5.f, 9.f, 10.f);
+    PointF back[] = {{3, 11}, {2, 11}, {2, 2}, {10, 2}, {10, 3}};
+    g.DrawLines(&pen, back, 5);
+}
 } // namespace
+void LibraryWindow::paintBackdrop(HDC dc, RECT bounds) {
+    HDC memory = CreateCompatibleDC(dc);
+    if (!memory) {
+        backdrop(dc, bounds, colors);
+        return;
+    }
+    bool refresh =
+        !backdropBitmap || backdropSize.cx != bounds.right || backdropSize.cy != bounds.bottom;
+    if (refresh) {
+        DeleteObject(backdropBitmap);
+        backdropBitmap = CreateCompatibleBitmap(dc, bounds.right, bounds.bottom);
+        backdropSize = {bounds.right, bounds.bottom};
+    }
+    if (backdropBitmap) {
+        auto old = SelectObject(memory, backdropBitmap);
+        if (refresh)
+            backdrop(memory, bounds, colors);
+        BitBlt(dc, 0, 0, bounds.right, bounds.bottom, memory, 0, 0, SRCCOPY);
+        SelectObject(memory, old);
+    } else
+        backdrop(dc, bounds, colors);
+    DeleteDC(memory);
+}
 void LibraryWindow::paint() {
     PAINTSTRUCT ps;
     auto dc = BeginPaint(h, &ps);
-    fill(dc, ps.rcPaint, colors.paper);
-    fill(dc, rect(0, 60, split, height - 60), colors.rail);
-    auto band = rect(0, 0, width, 60);
-    auto vertex = [](int x, int y, COLORREF c) {
-        return TRIVERTEX{
-            x, y, COLOR16(GetRValue(c) * 257), COLOR16(GetGValue(c) * 257), COLOR16(GetBValue(c) * 257),
-            0};
+    RECT bounds;
+    GetClientRect(h, &bounds);
+    paintBackdrop(dc, bounds);
+    auto panel = [&](RECT r, COLORREF color) {
+        if (!colors.contrast) {
+            RECT shade = r;
+            OffsetRect(&shade, 0, px(2));
+            surface(dc, shade, px(23), tone(colors.muted, 26), tone(colors.muted, 18),
+                    tone(colors.muted, 12));
+        }
+        rounded(dc, r, px(23), color, colors.contrast ? colors.line : RGB(255, 255, 255));
     };
-    TRIVERTEX stops[] = {vertex(0, 0, colors.paper), vertex(band.right, band.bottom, colors.bar)};
-    GRADIENT_RECT slice{0, 1};
-    GradientFill(dc, stops, 2, &slice, 1, GRADIENT_FILL_RECT_V);
-    fill(dc, rect(0, 0, width, 1), colors.paper);
-    fill(dc, rect(0, 59, width, 1), colors.line);
-    fill(dc, rect(split - 1, 60, 1, height - 60), colors.line);
+    panel(rect(14, 70, split - 23, height - 85), colors.rail);
+    panel(rect(split + 2, 70, width - split - 17, height - 85), colors.paper);
     auto frame = [&](int x, int y, int w, int ht) {
         rounded(dc, rect(x, y, w, ht), px(12), colors.paper, colors.line);
     };
-    rounded(dc, rect(19, 13, 34, 34), px(13), colors.accent, colors.accent);
-    label(dc, L"›_", rect(19, 11, 34, 34), fonts[1], colors.reverse,
-          DT_CENTER | DT_SINGLELINE | DT_VCENTER);
-    label(dc, L"提示词库", rect(64, 9, 170, 42), fonts[2], colors.ink);
-    frame(17, 79, split - 35, 39);
-    auto pen = CreatePen(PS_SOLID, std::max(1, px(1)), colors.muted);
-    auto prev = SelectObject(dc, pen);
-    auto brush = SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
-    Ellipse(dc, px(26), px(92), px(36), px(102));
-    MoveToEx(dc, px(35), px(101), nullptr);
-    LineTo(dc, px(40), px(106));
-    SelectObject(dc, brush);
-    SelectObject(dc, prev);
-    DeleteObject(pen);
-    int x = split + 26, rw = width - x - 26;
+    auto logo = rect(28, 18, 39, 39);
+    surface(dc, logo, px(13), tone(colors.contrast ? colors.accent : RGB(137, 165, 248)),
+            tone(colors.accent), tone(colors.paper));
+    copyGlyph(dc, logo, px(19), colors.reverse);
+    label(dc, L"提示词库", rect(78, 15, 150, 43), fonts[2], colors.ink);
+    frame(27, 83, split - 56, 42);
+    {
+        Gdiplus::Graphics g(dc);
+        g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+        g.ScaleTransform(dpi / 96.f, dpi / 96.f);
+        Gdiplus::Pen pen(tone(colors.muted), 1.55f);
+        g.DrawEllipse(&pen, 38, 98, 10, 10);
+        g.DrawLine(&pen, 47, 107, 51, 111);
+    }
+    auto count = L"提示词  ·  " + std::to_wstring(rows.size());
+    label(dc, count, rect(36, 176, split - 70, 27), fonts[1], colors.muted);
+    int x = split + 36, rw = width - x - 43;
+    auto badges = [&](const std::vector<std::wstring> &names, int y) {
+        int left = x;
+        auto prev = SelectObject(dc, fonts[0]);
+        for (auto &name : names) {
+            SIZE sz{};
+            GetTextExtentPoint32W(dc, name.data(), int(name.size()), &sz);
+            int available = x + rw - left;
+            if (available < 35)
+                break;
+            int w = std::min(available, MulDiv(sz.cx, 96, dpi) + 24);
+            RECT badge = rect(left, y, w, 24);
+            rounded(dc, badge, px(12), colors.rail, colors.contrast ? colors.line : colors.rail);
+            label(dc, name, badge, fonts[0], colors.muted,
+                  DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+            left += w + 6;
+        }
+        SelectObject(dc, prev);
+    };
     if (editing) {
-        label(dc, L"标题", rect(x, 75, rw, 28), fonts[1], colors.muted);
-        frame(x, 106, rw, 42);
-        label(dc, L"分类标签", rect(x, 149, rw, 25), fonts[1], colors.muted);
-        frame(x, 176, rw - 114, 36);
-        label(dc, joined(editor.tags), rect(x, 214, rw, 27), fonts[0], colors.accent);
-        label(dc, L"正文", rect(x, 247, rw, 28), fonts[1], colors.muted);
-        frame(x, 279, rw, height - 297);
+        label(dc, L"标题", rect(x, 90, rw, 28), fonts[1], colors.muted);
+        frame(x, 121, rw, 42);
+        label(dc, L"分类标签", rect(x, 173, rw, 25), fonts[1], colors.muted);
+        frame(x, 199, rw - 114, 36);
+        label(dc, joined(editor.tags), rect(x, 236, rw, 27), fonts[0], colors.accent);
+        label(dc, L"正文", rect(x, 271, rw, 28), fonts[1], colors.muted);
+        frame(x, 300, rw, height - 335);
     } else if (current) {
-        label(dc, current->title, rect(x, 82, rw, 47), fonts[2], colors.ink);
-        label(dc, joined(current->tags), rect(x, 130, rw, 27), fonts[0], colors.accent);
-        fill(dc, rect(x, 158, rw, 1), colors.line);
+        label(dc, current->title, rect(x, 99, rw, 47), fonts[2], colors.ink);
+        badges(current->tags, 149);
+        fill(dc, rect(x, 182, rw, 1), colors.line);
     } else {
         bool filtered = category || !valueOf(item(Search)).empty();
-        label(dc, filtered ? L"没有匹配的提示词" : L"还没有提示词", rect(x, 141, rw, 47), fonts[2],
-              colors.ink);
+        int cy = (height + 70) / 2;
+        RECT mark = rect(x + rw / 2 - 25, cy - 68, 50, 50);
+        surface(dc, mark, px(17), tone(colors.rail), tone(colors.tint), tone(colors.paper));
+        copyGlyph(dc, mark, px(24), colors.accent);
+        label(dc, filtered ? L"没有匹配的提示词" : L"还没有提示词", rect(x, cy - 8, rw, 36), fonts[2],
+              colors.ink, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     }
     if (!notice.empty()) {
         int w = std::min(width - 430, 240);
@@ -81,16 +166,21 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
         bool selected = d.itemState & ODS_SELECTED;
         fill(dc, r, colors.rail);
         InflateRect(&r, -px(6), -px(3));
-        rounded(dc, r, px(14), selected ? colors.tint : colors.rail,
-                selected ? colors.line : colors.rail);
+        if (selected) {
+            surface(dc, r, px(12), tone(colors.paper), tone(colors.tint),
+                    tone(colors.contrast ? colors.ink : colors.paper));
+        }
         auto title = r;
-        title.left += px(11);
-        title.right -= px(58);
+        title.left += px(13);
+        title.right -= px(55);
         label(dc, row.title, title, fonts[selected ? 1 : 0], colors.ink);
-        auto copyRect = r;
-        copyRect.left = copyRect.right - px(52);
-        label(dc, copied == row.id ? L"已复制" : L"复制", copyRect, fonts[0], colors.accent,
-              DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        auto action = r;
+        action.left = action.right - px(43);
+        if (copied == row.id)
+            label(dc, L"已复制", action, fonts[0], colors.accent,
+                  DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        else
+            copyGlyph(dc, action, px(15), selected ? colors.accent : colors.muted);
         if (d.itemState & ODS_FOCUS) {
             InflateRect(&r, -px(2), -px(2));
             DrawFocusRect(dc, &r);
@@ -109,17 +199,33 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
         selected = it != tags.end() && it - tags.begin() >= visibleTags;
     }
     bool primary = id == New || id == Save || id == EmptyAction;
-    COLORREF surround =
-        tag ? colors.rail : ((id == TagMenu || id == EmptyAction) ? colors.paper : colors.bar);
-    fill(dc, r, surround);
+    if (tag || id == TagMenu || id == EmptyAction) {
+        fill(dc, r, tag ? colors.rail : colors.paper);
+    } else {
+        // Match the surrounding glass canvas across each native child window.
+        POINT origin{};
+        MapWindowPoints(d.hwndItem, h, &origin, 1);
+        int state = SaveDC(dc);
+        SetViewportOrgEx(dc, -origin.x, -origin.y, nullptr);
+        RECT bounds;
+        GetClientRect(h, &bounds);
+        paintBackdrop(dc, bounds);
+        RestoreDC(dc, state);
+    }
     InflateRect(&r, -1, -1);
-    auto bg = primary ? colors.accent : (selected ? colors.tint : (tag ? colors.rail : colors.paper));
-    if ((d.itemState & ODS_SELECTED) && !primary)
-        bg = colors.tint;
-    rounded(dc, r, px(tag ? 22 : 15), bg,
-            primary ? colors.accent : (selected ? colors.accent : colors.line));
+    bool pressed = (d.itemState & ODS_SELECTED) != 0;
+    if (primary) {
+        COLORREF top = colors.contrast || pressed ? colors.accent : RGB(101, 132, 236);
+        surface(dc, r, px(18), tone(top), tone(colors.accent),
+                tone(colors.contrast ? colors.line : colors.paper));
+    } else if (selected || !tag || pressed) {
+        COLORREF base = selected || pressed ? colors.tint : colors.rail;
+        surface(dc, r, px(18), tone(colors.paper, colors.contrast ? 255 : 205),
+                tone(base, colors.contrast ? 255 : 112),
+                tone(colors.contrast ? colors.line : colors.paper));
+    }
     label(dc, valueOf(d.hwndItem), r, fonts[primary || selected ? 1 : 0],
-          primary ? colors.reverse : colors.ink,
+          primary ? colors.reverse : (tag && !selected ? colors.muted : colors.ink),
           DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     if (d.itemState & ODS_FOCUS) {
         InflateRect(&r, -px(3), -px(3));

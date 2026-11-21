@@ -31,6 +31,9 @@ struct LibraryWindow {
     Palette colors;
     UINT dpi = 96;
     std::array<HFONT, 4> fonts{};
+    HBITMAP backdropBitmap{};
+    SIZE backdropSize{};
+    void paintBackdrop(HDC dc, RECT bounds);
     HBRUSH paperBrush{}, railBrush{};
     std::vector<Tag> tags;
     std::vector<Summary> rows;

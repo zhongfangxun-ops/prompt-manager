@@ -139,6 +139,7 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM w, LPARAM l) {
 std::unique_ptr<LibraryWindow> active;
 } // namespace
 LibraryWindow::~LibraryWindow() {
+    DeleteObject(backdropBitmap);
     for (auto f : fonts)
         DeleteObject(f);
     DeleteObject(paperBrush);
@@ -188,12 +189,14 @@ void LibraryWindow::create() {
 }
 void LibraryWindow::style() {
     colors = Palette();
+    DeleteObject(backdropBitmap);
+    backdropBitmap = nullptr;
     DeleteObject(paperBrush);
     DeleteObject(railBrush);
     paperBrush = CreateSolidBrush(colors.paper);
     railBrush = CreateSolidBrush(colors.rail);
     auto old = fonts;
-    fonts = {fontAt(14, FW_NORMAL, dpi), fontAt(14, FW_SEMIBOLD, dpi), fontAt(23, FW_SEMIBOLD, dpi),
+    fonts = {fontAt(14, FW_NORMAL, dpi), fontAt(14, FW_SEMIBOLD, dpi), fontAt(25, FW_SEMIBOLD, dpi),
              fontAt(16, FW_NORMAL, dpi)};
     for (HWND c = GetWindow(h, GW_CHILD); c; c = GetWindow(c, GW_HWNDNEXT)) {
         auto id = GetDlgCtrlID(c);
@@ -201,7 +204,11 @@ void LibraryWindow::style() {
     }
     for (auto f : old)
         DeleteObject(f);
-    SendMessageW(item(List), LB_SETITEMHEIGHT, 0, px(46));
+    SendMessageW(item(List), LB_SETITEMHEIGHT, 0, px(48));
+    DWM_WINDOW_CORNER_PREFERENCE corner = DWMWCP_ROUND;
+    DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
+    DWM_SYSTEMBACKDROP_TYPE material = colors.contrast ? DWMSBT_NONE : DWMSBT_TRANSIENTWINDOW;
+    DwmSetWindowAttribute(h, DWMWA_SYSTEMBACKDROP_TYPE, &material, sizeof(material));
     COLORREF caption = colors.bar;
     DwmSetWindowAttribute(h, DWMWA_CAPTION_COLOR, &caption, sizeof(caption));
 }
@@ -210,8 +217,8 @@ void LibraryWindow::layout() {
     GetClientRect(h, &client);
     width = MulDiv(client.right, 96, dpi);
     height = MulDiv(client.bottom, 96, dpi);
-    split = std::clamp(width * 35 / 100, 234, 344);
-    int x = split + 26, rw = width - x - 26;
+    split = std::clamp(width * 33 / 100, 240, 350);
+    int x = split + 36, rw = width - x - 43;
     auto move = [&](int id, int a, int b, int c, int d, bool visible) {
         HWND ctrl = item(id);
         if (visible) {
@@ -220,11 +227,11 @@ void LibraryWindow::layout() {
         } else
             ShowWindow(ctrl, SW_HIDE);
     };
-    move(Search, 44, 88, split - 75, 23, true);
-    int tx = 18;
+    move(Search, 55, 94, split - 95, 22, true);
+    int tx = 28;
     auto chip = [&](int id, const std::wstring &name, int cw) {
         SetWindowTextW(item(id), name.c_str());
-        move(id, tx, 130, cw, 28, true);
+        move(id, tx, 135, cw, 28, true);
         tx += cw + 5;
     };
     chip(FilterAll, L"全部", 48);
@@ -237,7 +244,7 @@ void LibraryWindow::layout() {
             GetTextExtentPoint32W(dc, tags[i].name.c_str(), tags[i].name.size(), &size);
             int cw = std::clamp(MulDiv(size.cx, 96, dpi) + 20, 42, 104);
             bool more = i + 1 < (int)tags.size();
-            if (visibleTags == i && tx + cw + (more ? 39 : 0) <= split - 14) {
+            if (visibleTags == i && tx + cw + (more ? 39 : 0) <= split - 22) {
                 chip(FilterFirst + i, tags[i].name, cw);
                 ++visibleTags;
                 continue;
@@ -248,19 +255,19 @@ void LibraryWindow::layout() {
     SelectObject(dc, old);
     ReleaseDC(h, dc);
     SetWindowTextW(item(FilterMore), L"···");
-    move(FilterMore, tx, 130, 33, 28, visibleTags < (int)tags.size());
-    move(List, 8, 176, split - 16, height - 189, true);
-    move(New, width - 109, 13, 87, 35, !editing);
-    move(Edit, width - 195, 13, 72, 35, !editing && current.has_value());
-    move(More, width - 253, 13, 52, 35, !editing && current.has_value());
-    move(Cancel, width - 189, 13, 73, 35, editing);
-    move(Save, width - 105, 13, 83, 35, editing);
-    move(Body, x, 168, rw, height - 190, !editing && current.has_value());
-    move(EmptyAction, x, 212, std::min(rw, 170), 39, !editing && !current.has_value());
-    move(TitleInput, x + 9, 116, rw - 18, 25, editing);
-    move(TagInput, x + 9, 184, rw - 126, 24, editing);
-    move(TagMenu, width - 133, 178, 104, 33, editing);
-    move(BodyInput, x + 9, 289, rw - 18, height - 320, editing);
+    move(FilterMore, tx, 135, 33, 28, visibleTags < (int)tags.size());
+    move(List, 24, 211, split - 48, height - 243, true);
+    move(New, width - 119, 20, 87, 35, !editing);
+    move(Edit, width - 203, 20, 72, 35, !editing && current.has_value());
+    move(More, width - 263, 20, 52, 35, !editing && current.has_value());
+    move(Cancel, width - 199, 20, 73, 35, editing);
+    move(Save, width - 116, 20, 83, 35, editing);
+    move(Body, x, 196, rw, height - 243, !editing && current.has_value());
+    move(EmptyAction, x + (rw - 168) / 2, (height + 70) / 2 + 34, 168, 36, !editing && !current.has_value());
+    move(TitleInput, x + 11, 132, rw - 18, 25, editing);
+    move(TagInput, x + 11, 207, rw - 126, 24, editing);
+    move(TagMenu, width - 149, 202, 104, 33, editing);
+    move(BodyInput, x + 11, 311, rw - 22, height - 365, editing);
     for (int id : std::initializer_list<int>{Search, List, FilterAll, FilterMore, FilterFirst,
                                              FilterFirst + 1, FilterFirst + 2, FilterFirst + 3})
         EnableWindow(item(id), !editing);
@@ -285,8 +292,8 @@ HWND openLibrary(HWND) {
     auto r = mi.rcWork;
     UINT dpi = 96, dy = 96;
     GetDpiForMonitor(m, MDT_EFFECTIVE_DPI, &dpi, &dy);
-    int w = std::min<int>(r.right - r.left, MulDiv(900, dpi, 96)),
-        ht = std::min<int>(r.bottom - r.top, MulDiv(580, dpi, 96));
+    int w = std::min<int>(r.right - r.left, MulDiv(980, dpi, 96)),
+        ht = std::min<int>(r.bottom - r.top, MulDiv(650, dpi, 96));
     auto h =
         CreateWindowExW(WS_EX_CONTROLPARENT, className, L"提示词", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                         r.left + (r.right - r.left - w) / 2, r.top + (r.bottom - r.top - ht) / 2, w, ht,

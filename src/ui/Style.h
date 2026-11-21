@@ -1,14 +1,18 @@
 #pragma once
 #include "platform/App.h"
 #include <algorithm>
+#include <objidl.h>
+#include <gdiplus.h>
 struct Palette {
-    COLORREF paper = RGB(253, 253, 251), rail = RGB(244, 246, 244), bar = RGB(234, 240, 237),
-             ink = RGB(30, 43, 40), muted = RGB(82, 101, 94), line = RGB(212, 221, 215),
-             tint = RGB(222, 236, 226), accent = RGB(40, 86, 67), reverse = RGB(255, 255, 255);
+    bool contrast = false;
+    COLORREF paper = RGB(255, 255, 255), rail = RGB(244, 246, 253), bar = RGB(230, 235, 249),
+             ink = RGB(29, 33, 46), muted = RGB(93, 101, 123), line = RGB(214, 219, 235),
+             tint = RGB(222, 230, 255), accent = RGB(57, 84, 175), reverse = RGB(255, 255, 255);
     Palette() {
         HIGHCONTRASTW h{sizeof(h)};
         SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(h), &h, 0);
         if (h.dwFlags & HCF_HIGHCONTRASTON) {
+            contrast = true;
             paper = rail = bar = GetSysColor(COLOR_WINDOW);
             ink = muted = GetSysColor(COLOR_WINDOWTEXT);
             line = ink;
@@ -22,13 +26,33 @@ inline void fill(HDC dc, RECT r, COLORREF color) {
     SetDCBrushColor(dc, color);
     FillRect(dc, &r, (HBRUSH)GetStockObject(DC_BRUSH));
 }
-inline void rounded(HDC dc, RECT r, int rad, COLORREF bg, COLORREF stroke) {
-    auto ob = SelectObject(dc, GetStockObject(DC_BRUSH)), op = SelectObject(dc, GetStockObject(DC_PEN));
-    SetDCBrushColor(dc, bg);
-    SetDCPenColor(dc, stroke);
-    RoundRect(dc, r.left, r.top, r.right, r.bottom, rad, rad);
-    SelectObject(dc, op);
-    SelectObject(dc, ob);
+inline Gdiplus::Color tone(COLORREF c, BYTE alpha = 255) {
+    return {alpha, GetRValue(c), GetGValue(c), GetBValue(c)};
+}
+// Draw a continuous rounded outline, a tinted surface and its light-catching rim.
+inline void surface(HDC dc, RECT r, float radius, Gdiplus::Color top, Gdiplus::Color bottom,
+                    Gdiplus::Color rim) {
+    using namespace Gdiplus;
+    float x = r.left + 0.75f, y = r.top + 0.75f, w = r.right - r.left - 1.5f,
+          h = r.bottom - r.top - 1.5f;
+    if (w <= 1 || h <= 1)
+        return;
+    float d = std::min({2 * radius, w, h});
+    Graphics g(dc);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    GraphicsPath shape;
+    shape.AddArc(x, y, d, d, 180, 90);
+    shape.AddArc(x + w - d, y, d, d, 270, 90);
+    shape.AddArc(x + w - d, y + h - d, d, d, 0, 90);
+    shape.AddArc(x, y + h - d, d, d, 90, 90);
+    shape.CloseFigure();
+    LinearGradientBrush wash(PointF(x, y), PointF(x, y + h), top, bottom);
+    g.FillPath(&wash, &shape);
+    Pen edge(rim, 1.0f);
+    g.DrawPath(&edge, &shape);
+}
+inline void rounded(HDC dc, RECT r, int radius, COLORREF bg, COLORREF line) {
+    surface(dc, r, float(radius), tone(bg), tone(bg), tone(line));
 }
 inline HFONT fontAt(int px, int weight, UINT dpi) {
     return CreateFontW(-MulDiv(px, dpi, 96), 0, 0, 0, weight, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
