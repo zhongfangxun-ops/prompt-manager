@@ -77,6 +77,13 @@ struct LibraryWindow {
     void chooseTag();
     void filter(Id);
     void filterMenu();
+    HMENU activePopup{};
+    HWND styledPopup{};
+    int trackPopup(int control, HMENU menu);
+    bool measurePopup(MEASUREITEMSTRUCT &item);
+    bool drawPopup(const DRAWITEMSTRUCT &item);
+    LRESULT popupChar(wchar_t key);
+    void stylePopup(HWND popup);
     void copy(Id);
     void flash(std::wstring text, Id id = 0);
     void moreMenu();

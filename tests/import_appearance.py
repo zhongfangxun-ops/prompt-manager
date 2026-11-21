@@ -62,7 +62,7 @@ def run(exe, supplied=None):
             path.write_text(json.dumps({
                 "format": "gemini-voyager.prompts.v1", "version": "1.0.0",
                 "items": [{"id": "example-1", "name": "练习", "text": "第一行\n\n第二行 😀",
-                           "tags": ["一", "二"], "createdAt": 1000, "updatedAt": 1000}]
+                           "tags": ["一", "二", "三", "四", "五", "Mind & Notes"], "createdAt": 1000, "updatedAt": 1000}]
             }, ensure_ascii=False), encoding="utf-8")
         entries = json.loads(path.read_text(encoding="utf-8-sig"))["items"]
         p = launch(exe, profile)
@@ -73,17 +73,17 @@ def run(exe, supplied=None):
                 return shell, until(lambda: byprefix(p.pid, "PromptManager.Library"))
 
             shell, window = open_library()
+            search = u.GetDlgItem(window, 101)
+            light = edit_background(search)
             assert u.IsWindowVisible(u.GetDlgItem(window, 105)), "More hidden in empty library"
             u.PostMessageW(u.GetDlgItem(window, 105), 0xF5, 0, 0)
             popup = until(lambda: byprefix(p.pid, "#32768"))
             handle = until(lambda: u.SendMessageW(popup, 0x01E1, 0, 0))  # MN_GETHMENU
             menu_ids = {u.GetMenuItemID(handle, i) for i in range(u.GetMenuItemCount(handle))}
             assert {121, 122, 123} <= menu_ids
-            u.PostMessageW(window, 0x1F, 0, 0)  # WM_CANCELMODE
+            u.PostMessageW(window, 0x102, ord("深"), 0)  # keyboard selection inside TrackPopupMenu
             until(lambda: not u.IsWindow(popup))
-            search = u.GetDlgItem(window, 101)
-            light = edit_background(search)
-            u.SendMessageW(window, 273, 123, 0)
+            until(lambda: (edit_background(search) & 255) < (light & 255) - 80)
             dark = edit_background(search)
             assert (dark & 255) < (light & 255) - 80, (light, dark)
 
@@ -106,6 +106,20 @@ def run(exe, supplied=None):
                         "select name from tags join prompt_tags on tag_id=tags.id where prompt_id=?", (row[0],))}
                     assert tags == set(entry["tags"])
 
+            if not supplied:
+                overflow = u.GetDlgItem(window, 108)
+                assert u.IsWindowVisible(overflow)
+                u.PostMessageW(overflow, 0xF5, 0, 0)
+                popup = until(lambda: byprefix(p.pid, "#32768"))
+                until(lambda: u.IsWindowVisible(popup))
+                u.PostMessageW(window, 0x102, ord("M"), 0)
+                until(lambda: not u.IsWindow(popup))
+                u.PostMessageW(overflow, 0xF5, 0, 0)
+                popup = until(lambda: byprefix(p.pid, "#32768"))
+                menu = until(lambda: u.SendMessageW(popup, 0x01E1, 0, 0))
+                assert u.GetMenuState(menu, 0, 0x400) & 8  # first (English) tag is checked
+                u.PostMessageW(window, 0x1F, 0, 0)
+                until(lambda: not u.IsWindow(popup))
             u.SendMessageW(shell, EXIT, 0, 0)
             assert p.wait(5) == 0
             p = launch(exe, profile)

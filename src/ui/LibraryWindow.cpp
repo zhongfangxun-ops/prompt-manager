@@ -140,8 +140,22 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM w, LPARAM l) {
             v->paint();
             return 0;
         case WM_DRAWITEM:
+            if (v->drawPopup(*(DRAWITEMSTRUCT *)l))
+                return TRUE;
             if (v->draw(*(DRAWITEMSTRUCT *)l))
                 return TRUE;
+            break;
+        case WM_MEASUREITEM:
+            if (v->measurePopup(*(MEASUREITEMSTRUCT *)l))
+                return TRUE;
+            break;
+        case WM_MENUCHAR:
+            if (v->activePopup && v->activePopup == (HMENU)l)
+                return v->popupChar(LOWORD(w));
+            break;
+        case WM_ENTERIDLE:
+            if (w == MSGF_MENU && v->activePopup)
+                v->stylePopup((HWND)l);
             break;
         case WM_CTLCOLORSTATIC:
         case WM_CTLCOLOREDIT:

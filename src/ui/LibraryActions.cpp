@@ -2,11 +2,6 @@
 #include "platform/Clipboard.h"
 #include <commdlg.h>
 namespace {
-int atControl(HWND owner, HWND control, HMENU menu) {
-    RECT r;
-    GetWindowRect(control, &r);
-    return TrackPopupMenu(menu, TPM_RETURNCMD | TPM_LEFTALIGN, r.left, r.bottom, 0, owner, nullptr);
-}
 bool has(const std::vector<std::wstring> &names, const std::wstring &name) {
     return std::any_of(names.begin(), names.end(), [&](const auto &s) {
         return CompareStringOrdinal(s.c_str(), -1, name.c_str(), -1, TRUE) == CSTR_EQUAL;
@@ -65,7 +60,7 @@ void LibraryWindow::filterMenu() {
     for (size_t i = 0; i < tags.size(); i++)
         AppendMenuW(menu, MF_STRING | (tags[i].id == category ? MF_CHECKED : 0), i + 1,
                     menuLabel(tags[i].name).c_str());
-    int k = atControl(h, item(FilterMore), menu);
+    int k = trackPopup(FilterMore, menu);
     DestroyMenu(menu);
     if (k)
         filter(tags.at(k - 1).id);
@@ -94,7 +89,7 @@ void LibraryWindow::chooseTag() {
         for (size_t i = 0; i < options.size(); i++)
             AppendMenuW(menu, MF_STRING | (has(editor.tags, options[i]) ? MF_CHECKED : 0), i + 1,
                         menuLabel(options[i]).c_str());
-        int k = atControl(h, item(TagMenu), menu);
+        int k = trackPopup(TagMenu, menu);
         DestroyMenu(menu);
         if (k) {
             auto name = options.at(k - 1);
@@ -193,7 +188,7 @@ void LibraryWindow::moreMenu() {
     CheckMenuRadioItem(menu, LightTheme, DarkTheme,
                        readSetting(L"Theme", L"light") == L"dark" ? DarkTheme : LightTheme,
                        MF_BYCOMMAND);
-    int k = atControl(h, item(More), menu);
+    int k = trackPopup(More, menu);
     DestroyMenu(menu);
     if (k)
         SendMessageW(h, WM_COMMAND, k, 0);
