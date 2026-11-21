@@ -4,21 +4,36 @@
 #include <objidl.h>
 #include <gdiplus.h>
 struct Palette {
-    bool contrast = false;
+    bool contrast = false, dark = false;
     COLORREF paper = RGB(255, 255, 255), rail = RGB(244, 246, 253), bar = RGB(230, 235, 249),
              ink = RGB(29, 33, 46), muted = RGB(93, 101, 123), line = RGB(214, 219, 235),
-             tint = RGB(222, 230, 255), accent = RGB(57, 84, 175), reverse = RGB(255, 255, 255);
-    Palette() {
+             tint = RGB(222, 230, 255), accent = RGB(57, 84, 175), reverse = RGB(255, 255, 255),
+             accentTop = RGB(71, 99, 192), rim = RGB(255, 255, 255), shadow = RGB(93, 101, 123);
+    explicit Palette(bool useDark = false) {
         HIGHCONTRASTW h{sizeof(h)};
         SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(h), &h, 0);
         if (h.dwFlags & HCF_HIGHCONTRASTON) {
             contrast = true;
             paper = rail = bar = GetSysColor(COLOR_WINDOW);
             ink = muted = GetSysColor(COLOR_WINDOWTEXT);
-            line = ink;
+            line = rim = ink;
             tint = paper;
-            accent = GetSysColor(COLOR_HIGHLIGHT);
+            accentTop = accent = GetSysColor(COLOR_HIGHLIGHT);
             reverse = GetSysColor(COLOR_HIGHLIGHTTEXT);
+        } else if (useDark) {
+            dark = true;
+            paper = RGB(33, 39, 53);
+            rail = RGB(28, 34, 48);
+            bar = RGB(27, 33, 47);
+            ink = RGB(237, 241, 249);
+            muted = RGB(179, 191, 214);
+            line = RGB(77, 89, 113);
+            rim = RGB(64, 74, 97);
+            tint = RGB(52, 68, 100);
+            accent = RGB(167, 190, 255);
+            accentTop = RGB(191, 209, 255);
+            reverse = RGB(23, 36, 69);
+            shadow = RGB(0, 0, 0);
         }
     }
 };

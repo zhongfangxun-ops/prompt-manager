@@ -1,5 +1,6 @@
 #include "ui/LibraryWindow.h"
 #include "platform/Clipboard.h"
+#include <commdlg.h>
 namespace {
 int atControl(HWND owner, HWND control, HMENU menu) {
     RECT r;
@@ -176,16 +177,54 @@ void LibraryWindow::copy(Id id) {
     }
     flash(L"已复制", id);
 }
-void LibraryWindow::deleteMenu() {
-    if (!current)
-        return;
+void LibraryWindow::moreMenu() {
     HMENU menu = CreatePopupMenu();
-    AppendMenuW(menu, MF_STRING, 1, L"复制正文");
-    AppendMenuW(menu, MF_STRING, 2, L"删除提示词…");
+    if (current && !editing) {
+        AppendMenuW(menu, MF_STRING, CopyEntry, L"复制正文");
+        AppendMenuW(menu, MF_STRING, DeleteEntry, L"删除提示词…");
+        AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    }
+    AppendMenuW(menu, editing ? MF_GRAYED : MF_STRING, ImportVoyager, L"导入提示词…");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, LightTheme, L"浅色模式");
+    AppendMenuW(menu, MF_STRING, DarkTheme, L"深色模式");
+    CheckMenuRadioItem(menu, LightTheme, DarkTheme,
+                       readSetting(L"Theme", L"light") == L"dark" ? DarkTheme : LightTheme,
+                       MF_BYCOMMAND);
     int k = atControl(h, item(More), menu);
     DestroyMenu(menu);
     if (k)
-        SendMessageW(h, WM_COMMAND, k == 1 ? CopyEntry : DeleteEntry, 0);
+        SendMessageW(h, WM_COMMAND, k, 0);
+}
+void LibraryWindow::importFile() {
+    std::vector<wchar_t> path(32768);
+    OPENFILENAMEW dialog{sizeof(dialog)};
+    dialog.hwndOwner = h;
+    dialog.lpstrTitle = L"导入 Gemini Voyager 提示词";
+    dialog.lpstrFilter = L"Gemini Voyager 提示词 (*.json)\0*.json\0";
+    dialog.lpstrFile = path.data();
+    dialog.nMaxFile = static_cast<DWORD>(path.size());
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
+    if (!GetOpenFileNameW(&dialog)) {
+        if (CommDlgExtendedError())
+            MessageBoxW(h, L"无法打开文件选择窗口。", L"导入提示词", MB_ICONERROR);
+        return;
+    }
+    try {
+        const auto result = store.importVoyager(path.data());
+        if (result.added) {
+            loading = true;
+            category = 0;
+            SetWindowTextW(item(Search), L"");
+            loading = false;
+            reloadTags();
+            reload();
+        }
+        flash(L"已导入 " + std::to_wstring(result.added) + L" 条 · 跳过 " +
+              std::to_wstring(result.skipped) + L" 条");
+    } catch (const std::exception &e) {
+        MessageBoxW(h, wideError(e).c_str(), L"导入提示词失败", MB_ICONERROR);
+    }
 }
 void LibraryWindow::deleteCurrent() {
     if (current && MessageBoxW(h, (L"删除「" + current->title + L"」？").c_str(), L"删除提示词",
@@ -206,6 +245,17 @@ void LibraryWindow::command(int id, int code) {
     }
     if (code != BN_CLICKED)
         return;
+    if (id == More) {
+        moreMenu();
+        return;
+    }
+    if (id == LightTheme || id == DarkTheme) {
+        writeSetting(L"Theme", id == DarkTheme ? L"dark" : L"light");
+        style();
+        layout();
+        RedrawWindow(h, nullptr, nullptr, RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
+        return;
+    }
     if (editing) {
         switch (id) {
         case TagMenu:
@@ -233,8 +283,8 @@ void LibraryWindow::command(int id, int code) {
     case Edit:
         edit(false);
         break;
-    case More:
-        deleteMenu();
+    case ImportVoyager:
+        importFile();
         break;
     case DeleteEntry:
         deleteCurrent();

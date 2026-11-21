@@ -19,6 +19,9 @@ struct Summary {
     Id id;
     std::wstring title;
 };
+struct ImportResult {
+    int added = 0, skipped = 0;
+};
 std::wstring trimmed(std::wstring_view text);
 Id utcMillis();
 class PromptStore {
@@ -28,6 +31,7 @@ class PromptStore {
     PromptStore(const PromptStore &) = delete;
     PromptStore &operator=(const PromptStore &) = delete;
     Id save(const Prompt &draft);
+    ImportResult importVoyager(const std::filesystem::path &path);
     void erase(Id id);
     std::optional<Prompt> get(Id id);
     std::vector<Tag> tags();

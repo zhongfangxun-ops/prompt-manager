@@ -1,4 +1,5 @@
 #include "ui/LibraryWindow.h"
+#include "ui/ButtonCaption.h"
 namespace {
 std::wstring joined(const std::vector<std::wstring> &tags) {
     std::wstring s;
@@ -18,7 +19,9 @@ void backdrop(HDC dc, RECT bounds, const Palette &palette) {
     Graphics g(dc);
     float w = float(bounds.right), h = float(bounds.bottom);
     RectF area(0, 0, w, h);
-    LinearGradientBrush sky(area, Color(255, 226, 235, 251), Color(255, 235, 241, 249), 32.f);
+    Color start = palette.dark ? Color(255, 18, 23, 35) : Color(255, 226, 235, 251);
+    Color end = palette.dark ? Color(255, 24, 31, 46) : Color(255, 235, 241, 249);
+    LinearGradientBrush sky(area, start, end, 32.f);
     g.FillRectangle(&sky, area);
     auto light = [&](float x, float y, float rx, float ry, Color glow) {
         GraphicsPath halo;
@@ -31,8 +34,10 @@ void backdrop(HDC dc, RECT bounds, const Palette &palette) {
         brush.SetSurroundColors(&transparent, &count);
         g.FillPath(&brush, &halo);
     };
-    light(.28f * w, .06f * h, .55f * w, .85f * h, Color(176, 194, 186, 244));
-    light(.76f * w, -.12f * h, .49f * w, .88f * h, Color(190, 196, 235, 250));
+    light(.28f * w, .06f * h, .55f * w, .85f * h,
+          palette.dark ? Color(150, 62, 53, 92) : Color(176, 194, 186, 244));
+    light(.76f * w, -.12f * h, .49f * w, .88f * h,
+          palette.dark ? Color(160, 42, 67, 89) : Color(190, 196, 235, 250));
 }
 void copyGlyph(HDC dc, RECT r, int unit, COLORREF color) {
     using namespace Gdiplus;
@@ -107,10 +112,10 @@ void LibraryWindow::paint() {
         if (!colors.contrast) {
             RECT shade = r;
             OffsetRect(&shade, 0, px(2));
-            surface(dc, shade, px(23), tone(colors.muted, 26), tone(colors.muted, 18),
-                    tone(colors.muted, 12));
+            surface(dc, shade, px(23), tone(colors.shadow, 26), tone(colors.shadow, 18),
+                    tone(colors.shadow, 12));
         }
-        rounded(dc, r, px(23), color, colors.contrast ? colors.line : RGB(255, 255, 255));
+        rounded(dc, r, px(23), color, colors.rim);
     };
     panel(rect(14, 57, split - 23, height - 72), colors.rail);
     panel(rect(split + 2, 57, width - split - 17, height - 72), colors.paper);
@@ -153,7 +158,8 @@ void LibraryWindow::paint() {
         frame(x, 121, rw, 42);
         label(dc, L"分类标签", rect(x, 173, rw, 25), 1, colors.muted);
         frame(x, 199, rw - 114, 36);
-        label(dc, joined(editor.tags), rect(x, 236, rw, 27), 0, colors.accent);
+        label(dc, joined(editor.tags), rect(x, 236, rw, 27), 0,
+              colors.contrast ? colors.ink : colors.accent);
         label(dc, L"正文", rect(x, 271, rw, 28), 1, colors.muted);
         frame(x, 300, rw, height - 335);
     } else if (current) {
@@ -165,7 +171,7 @@ void LibraryWindow::paint() {
         int cy = (height + 70) / 2;
         RECT mark = rect(x + rw / 2 - 25, cy - 68, 50, 50);
         surface(dc, mark, px(17), tone(colors.rail), tone(colors.tint), tone(colors.paper));
-        copyGlyph(dc, mark, px(24), colors.accent);
+        copyGlyph(dc, mark, px(24), colors.contrast ? colors.ink : colors.accent);
         label(dc, filtered ? L"没有匹配的提示词" : L"还没有提示词", rect(x, cy - 8, rw, 36), 2,
               colors.ink, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     }
@@ -173,7 +179,8 @@ void LibraryWindow::paint() {
         int w = std::min(width - 430, 240);
         auto r = rect(185, 16, w, 30);
         rounded(dc, r, px(12), colors.tint, colors.line);
-        label(dc, notice, r, 1, colors.accent, DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+        label(dc, notice, r, 1, colors.contrast ? colors.ink : colors.accent,
+              DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     }
     EndPaint(h, &ps);
 }
@@ -188,19 +195,25 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
         fill(dc, r, colors.rail);
         InflateRect(&r, -px(6), -px(3));
         if (selected) {
-            surface(dc, r, px(12), tone(colors.paper), tone(colors.tint),
-                    tone(colors.contrast ? colors.ink : colors.paper));
+            if (colors.contrast)
+                rounded(dc, r, px(12), colors.accent, colors.accent);
+            else
+                surface(dc, r, px(12), tone(colors.dark ? colors.tint : colors.paper), tone(colors.tint),
+                        tone(colors.dark ? colors.line : colors.rim));
         }
         auto title = r;
         title.left += px(13);
         title.right -= px(55);
-        label(dc, row.title, title, selected ? 1 : 0, colors.ink);
+        COLORREF text = selected && colors.contrast ? colors.reverse : colors.ink;
+        COLORREF actionInk =
+            colors.contrast ? text : (selected || copied == row.id ? colors.accent : colors.muted);
+        label(dc, row.title, title, selected ? 1 : 0, text);
         auto action = r;
         action.left = action.right - px(43);
         if (copied == row.id)
-            label(dc, L"已复制", action, 0, colors.accent, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            label(dc, L"已复制", action, 0, actionInk, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         else
-            copyGlyph(dc, action, px(15), selected ? colors.accent : colors.muted);
+            copyGlyph(dc, action, px(15), actionInk);
         if (d.itemState & ODS_FOCUS) {
             InflateRect(&r, -px(2), -px(2));
             DrawFocusRect(dc, &r);
@@ -258,19 +271,23 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
     }
     InflateRect(&r, -1, -1);
     bool pressed = (d.itemState & ODS_SELECTED) != 0;
-    if (primary) {
-        COLORREF top = colors.contrast || pressed ? colors.accent : RGB(101, 132, 236);
-        surface(dc, r, px(18), tone(top), tone(colors.accent),
-                tone(colors.contrast ? colors.line : colors.paper));
+    if (primary || (colors.contrast && (selected || pressed))) {
+        COLORREF top = pressed ? colors.accent : colors.accentTop;
+        surface(dc, r, px(18), tone(top), tone(colors.accent), tone(colors.rim));
     } else if (selected || !tag || pressed) {
         COLORREF base = selected || pressed ? colors.tint : colors.rail;
-        surface(dc, r, px(18), tone(colors.paper, colors.contrast ? 255 : 205),
-                tone(base, colors.contrast ? 255 : 112),
-                tone(colors.contrast ? colors.line : colors.paper));
+        if (colors.dark || colors.contrast)
+            rounded(dc, r, px(18), base, selected || pressed ? colors.line : colors.rim);
+        else
+            surface(dc, r, px(18), tone(colors.paper, 205), tone(base, 112), tone(colors.rim));
     }
-    label(dc, valueOf(d.hwndItem), r, primary || selected ? 1 : 0,
-          primary ? colors.reverse : (tag && !selected ? colors.muted : colors.ink),
-          DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    const auto caption = valueOf(d.hwndItem);
+    const COLORREF ink = primary || (colors.contrast && (selected || pressed)) ? colors.reverse
+                         : tag && !selected                                    ? colors.muted
+                                                                               : colors.ink;
+    if (tag || !drawButtonCaption(dc, r, dpi, ink, caption))
+        label(dc, caption, r, primary || selected ? 1 : 0, ink,
+              DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     if (d.itemState & ODS_FOCUS) {
         InflateRect(&r, -px(3), -px(3));
         DrawFocusRect(dc, &r);

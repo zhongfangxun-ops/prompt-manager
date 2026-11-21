@@ -26,6 +26,9 @@ enum Control {
     CloseWindowButton,
     MinimizeWindowButton,
     ZoomWindowButton,
+    ImportVoyager,
+    LightTheme,
+    DarkTheme,
     FilterFirst = 130
 };
 struct LibraryWindow {
@@ -75,7 +78,8 @@ struct LibraryWindow {
     void filterMenu();
     void copy(Id);
     void flash(std::wstring text, Id id = 0);
-    void deleteMenu();
+    void moreMenu();
+    void importFile();
     void deleteCurrent();
     bool keys(MSG &);
 };

@@ -1,6 +1,7 @@
 #include "ui/LibraryWindow.h"
 #include "platform/Clipboard.h"
 #include <dwmapi.h>
+#include <uxtheme.h>
 #include <windowsx.h>
 #include <shellscalingapi.h>
 namespace {
@@ -34,6 +35,22 @@ LRESULT CALLBACK rowMouse(HWND h, UINT msg, WPARAM w, LPARAM l, UINT_PTR, DWORD_
 }
 LRESULT CALLBACK inputComposition(HWND control, UINT msg, WPARAM w, LPARAM l, UINT_PTR, DWORD_PTR data) {
     auto &view = *reinterpret_cast<LibraryWindow *>(data);
+    if ((msg == WM_PAINT || msg == WM_PRINTCLIENT) && view.colors.dark &&
+        !GetWindowTextLengthW(control)) {
+        wchar_t cue[64]{};
+        if (SendMessageW(control, EM_GETCUEBANNER, (WPARAM)cue, ARRAYSIZE(cue)) && *cue) {
+            PAINTSTRUCT ps{};
+            HDC dc = msg == WM_PAINT ? BeginPaint(control, &ps) : (HDC)w;
+            RECT r;
+            GetClientRect(control, &r);
+            fill(dc, r, view.colors.paper);
+            r.left += LOWORD(SendMessageW(control, EM_GETMARGINS, 0, 0));
+            view.label(dc, cue, r, 0, view.colors.muted);
+            if (msg == WM_PAINT)
+                EndPaint(control, &ps);
+            return 0;
+        }
+    }
     if (msg == WM_IME_STARTCOMPOSITION)
         view.composing = control;
     if ((msg == WM_IME_ENDCOMPOSITION || msg == WM_KILLFOCUS) && view.composing == control)
@@ -107,11 +124,14 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM w, LPARAM l) {
             v->layout();
             return 0;
         }
+        case WM_SYSCOLORCHANGE:
         case WM_SETTINGCHANGE:
         case WM_THEMECHANGED:
             if (v->ready) {
                 v->style();
                 v->layout();
+                RedrawWindow(h, nullptr, nullptr,
+                             RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
             }
             break;
         case WM_ERASEBKGND:
@@ -134,6 +154,9 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM w, LPARAM l) {
             return (LRESULT)(rail ? v->railBrush : v->paperBrush);
         }
         case WM_COMMAND:
+            if (HIWORD(w) == EN_CHANGE && v->colors.dark &&
+                (LOWORD(w) == Search || LOWORD(w) == TagInput))
+                InvalidateRect((HWND)l, nullptr, FALSE);
             if (HIWORD(w) == BN_CLICKED) {
                 switch (LOWORD(w)) {
                 case CloseWindowButton:
@@ -237,7 +260,7 @@ void LibraryWindow::create() {
     SetFocus(item(Search));
 }
 void LibraryWindow::style() {
-    colors = Palette();
+    colors = Palette(readSetting(L"Theme", L"light") == L"dark");
     DeleteObject(backdropBitmap);
     backdropBitmap = nullptr;
     DeleteObject(paperBrush);
@@ -256,6 +279,8 @@ void LibraryWindow::style() {
     ReleaseDC(h, dc);
     for (HWND c = GetWindow(h, GW_CHILD); c; c = GetWindow(c, GW_HWNDNEXT)) {
         auto id = GetDlgCtrlID(c);
+        if (id == List || id == Body || id == BodyInput || id == Search || id == TagInput)
+            SetWindowTheme(c, colors.dark ? L"DarkMode_Explorer" : nullptr, nullptr);
         SendMessageW(c, WM_SETFONT, (WPARAM)fonts[(id == Body || id == BodyInput) ? 3 : 0], FALSE);
     }
     for (auto f : old)
@@ -265,7 +290,11 @@ void LibraryWindow::style() {
     DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
     DWM_SYSTEMBACKDROP_TYPE material = colors.contrast ? DWMSBT_NONE : DWMSBT_TRANSIENTWINDOW;
     DwmSetWindowAttribute(h, DWMWA_SYSTEMBACKDROP_TYPE, &material, sizeof(material));
-    COLORREF caption = colors.bar;
+    BOOL darkFrame = colors.dark;
+    DwmSetWindowAttribute(h, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkFrame, sizeof(darkFrame));
+    COLORREF border = colors.dark ? colors.rim : DWMWA_COLOR_DEFAULT;
+    DwmSetWindowAttribute(h, DWMWA_BORDER_COLOR, &border, sizeof(border));
+    COLORREF caption = colors.contrast ? DWMWA_COLOR_DEFAULT : colors.bar;
     DwmSetWindowAttribute(h, DWMWA_CAPTION_COLOR, &caption, sizeof(caption));
 }
 void LibraryWindow::layout() {
@@ -319,7 +348,7 @@ void LibraryWindow::layout() {
     SetWindowTextW(item(ZoomWindowButton), IsZoomed(h) ? L"还原" : L"最大化");
     move(New, width - 119, 11, 87, 32, !editing);
     move(Edit, width - 203, 11, 72, 32, !editing && current.has_value());
-    move(More, width - 263, 11, 52, 32, !editing && current.has_value());
+    move(More, width - (editing || current ? 263 : 179), 11, 52, 32, true);
     move(Cancel, width - 199, 11, 73, 32, editing);
     move(Save, width - 116, 11, 83, 32, editing);
     move(Body, x, 196, rw, height - 243, !editing && current.has_value());

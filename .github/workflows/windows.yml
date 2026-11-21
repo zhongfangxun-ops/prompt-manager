@@ -30,6 +30,8 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           python tests/shell_flow.py dist/PromptManager/PromptManager.exe
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/import_appearance.py dist/PromptManager/PromptManager.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           foreach ($case in @('flow','save','ime','copy')) {
             python tests/ui_regression.py dist/PromptManager/PromptManager.exe $case
             if ($LASTEXITCODE) { exit $LASTEXITCODE }

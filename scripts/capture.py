@@ -30,7 +30,9 @@ def main(exe,out):
             u.SendMessageW(h,OPEN,0,0);win=until(lambda:byprefix(p.pid,"PromptManager.Library"));u.UpdateWindow(win)
             out.mkdir(parents=True,exist_ok=True);capture(win,out/"library.png")
             u.SendMessageW(win,273,104,0);u.UpdateWindow(win);capture(win,out/"editor.png")
-            u.SendMessageW(win,273,115,0);u.SendMessageW(h,EXIT,0,0);p.wait(5)
+            u.SendMessageW(win,273,115,0)
+            u.SendMessageW(win,273,123,0);u.UpdateWindow(win);capture(win,out/"library-dark.png")
+            u.SendMessageW(h,EXIT,0,0);p.wait(5)
         finally:
             if p.poll() is None:p.terminate();p.wait()
 if __name__=="__main__":main(pathlib.Path(sys.argv[1]).resolve(),pathlib.Path(sys.argv[2]))
