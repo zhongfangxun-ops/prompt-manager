@@ -1,5 +1,6 @@
 #include "ui/LibraryWindow.h"
 #include "ui/ButtonCaption.h"
+#include <cmath>
 namespace {
 std::wstring joined(const std::vector<std::wstring> &tags) {
     std::wstring s;
@@ -186,9 +187,50 @@ void LibraryWindow::paint() {
     }
     EndPaint(h, &ps);
 }
+float LibraryWindow::motionDepth(ULONGLONG now) const {
+    float t = std::min(1.f, float(now - motionStart) / (motionPressed ? 105.f : 245.f));
+    if (motionPressed)
+        return 1.f - (1.f - motionFrom) * (1.f - t) * (1.f - t) * (1.f - t);
+    return t >= 1.f ? 0.f : motionFrom * std::exp(-5.f * t) * std::cos(9.f * t);
+}
+float LibraryWindow::pressDepth(HWND button, bool pressed) {
+    if (!animations || colors.contrast)
+        return pressed ? 1.f : 0.f;
+    if (button != motionButton && !pressed)
+        return 0.f;
+    const auto now = GetTickCount64();
+    if (button != motionButton || pressed != motionPressed) {
+        motionFrom = button == motionButton ? motionDepth(now) : .18f;
+        if (motionButton && motionButton != button)
+            InvalidateRect(motionButton, nullptr, FALSE);
+        motionButton = button;
+        motionStart = now;
+        motionPressed = pressed;
+        if (!SetTimer(h, 10, 16, nullptr)) {
+            motionButton = nullptr;
+            return pressed ? 1.f : 0.f;
+        }
+    }
+    return motionDepth(now);
+}
+void LibraryWindow::advancePress() {
+    if (motionButton)
+        InvalidateRect(motionButton, nullptr, FALSE);
+    if (!IsWindowVisible(motionButton) ||
+        GetTickCount64() - motionStart >= (motionPressed ? 105u : 245u)) {
+        KillTimer(h, 10);
+        if (!motionPressed || !IsWindowVisible(motionButton))
+            motionButton = nullptr;
+    }
+}
 bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
     HDC dc = d.hDC;
     RECT r = d.rcItem;
+    const bool focus = (d.itemState & ODS_FOCUS) && (keyboardFocus || colors.contrast);
+    auto focusRing = [&](RECT bounds, int radius, COLORREF ink) {
+        InflateRect(&bounds, -px(2), -px(2));
+        surface(dc, bounds, float(px(radius)), tone(ink, 0), tone(ink, 0), tone(ink));
+    };
     if (d.CtlID == List) {
         if (d.itemID >= rows.size())
             return true;
@@ -216,10 +258,8 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
             label(dc, L"已复制", action, 0, actionInk, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         else
             copyGlyph(dc, action, px(15), actionInk);
-        if (d.itemState & ODS_FOCUS) {
-            InflateRect(&r, -px(2), -px(2));
-            DrawFocusRect(dc, &r);
-        }
+        if (focus)
+            focusRing(r, 10, colors.contrast ? text : colors.accent);
         return true;
     }
     if (d.CtlType != ODT_BUTTON)
@@ -247,6 +287,8 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
         paintBackdrop(dc, bounds);
         RestoreDC(dc, state);
     }
+    bool pressed = (d.itemState & ODS_SELECTED) != 0;
+    float depth = pressDepth(d.hwndItem, pressed);
     if (id == CloseWindowButton || id == MinimizeWindowButton || id == ZoomWindowButton) {
         using namespace Gdiplus;
         Graphics g(dc);
@@ -255,10 +297,18 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
         COLORREF color = id == CloseWindowButton      ? RGB(241, 110, 106)
                          : id == MinimizeWindowButton ? RGB(245, 192, 82)
                                                       : RGB(99, 193, 129);
+        // Compress about the optical center so the native pointer target stays fixed.
+        g.TranslateTransform(12.f, 16.f + depth);
+        g.ScaleTransform(1.f + .08f * depth, 1.f - .17f * depth);
+        g.TranslateTransform(-12.f, -16.f);
         SolidBrush brush(tone(colors.contrast ? colors.paper : color));
         Pen rim(tone(colors.contrast ? colors.ink : color), 1.f);
         g.FillEllipse(&brush, 5, 9, 14, 14);
         g.DrawEllipse(&rim, 5, 9, 14, 14);
+        if (depth > 0.f && !colors.contrast) {
+            Pen glint(Color(BYTE(145.f * depth), 255, 255, 255), 1.4f);
+            g.DrawArc(&glint, 6, 10, 12, 11, 207, 105);
+        }
         Pen ink(tone(colors.contrast ? colors.ink : RGB(65, 62, 65)), 1.15f);
         if (id == CloseWindowButton) {
             g.DrawLine(&ink, 9, 13, 15, 19);
@@ -267,12 +317,15 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
             g.DrawLine(&ink, 8, 16, 16, 16);
         else
             g.DrawRectangle(&ink, 9, 13, 6, 6);
-        if (d.itemState & ODS_FOCUS)
-            DrawFocusRect(dc, &r);
+        if (focus) {
+            Pen ring(tone(colors.contrast ? colors.ink : colors.accent), 1.35f);
+            g.DrawEllipse(&ring, 2, 6, 20, 20);
+        }
         return true;
     }
     InflateRect(&r, -1, -1);
-    bool pressed = (d.itemState & ODS_SELECTED) != 0;
+    InflateRect(&r, -int(std::lround(px(2) * depth)), -int(std::lround(px(3) * depth)));
+    OffsetRect(&r, 0, int(std::lround(px(1) * depth)));
     if (primary || (colors.contrast && (selected || pressed))) {
         COLORREF top = pressed ? colors.accent : colors.accentTop;
         surface(dc, r, px(18), tone(top), tone(colors.accent), tone(colors.rim));
@@ -283,6 +336,9 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
         else
             surface(dc, r, px(18), tone(colors.paper, 205), tone(base, 112), tone(colors.rim));
     }
+    if (depth > 0.f && !colors.contrast)
+        surface(dc, r, float(px(18)), tone(RGB(255, 255, 255), BYTE(48.f * depth)),
+                tone(RGB(255, 255, 255), 0), tone(RGB(255, 255, 255), BYTE(95.f * depth)));
     const auto caption = valueOf(d.hwndItem);
     const COLORREF ink = primary || (colors.contrast && (selected || pressed)) ? colors.reverse
                          : tag && !selected                                    ? colors.muted
@@ -290,9 +346,7 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
     if (tag || !drawButtonCaption(dc, r, dpi, ink, caption, hanFace))
         label(dc, caption, r, primary || selected ? 1 : 0, ink,
               DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-    if (d.itemState & ODS_FOCUS) {
-        InflateRect(&r, -px(3), -px(3));
-        DrawFocusRect(dc, &r);
-    }
+    if (focus)
+        focusRing(r, 16, primary || colors.contrast ? ink : colors.accent);
     return true;
 }

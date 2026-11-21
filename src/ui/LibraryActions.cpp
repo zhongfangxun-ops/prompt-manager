@@ -307,6 +307,15 @@ void LibraryWindow::command(int id, int code) {
 bool LibraryWindow::keys(MSG &m) {
     if (m.hwnd != h && !IsChild(h, m.hwnd))
         return false;
+    if (m.message == WM_LBUTTONDOWN || m.message == WM_POINTERDOWN || m.message == WM_KEYDOWN) {
+        const bool fromKeyboard = m.message == WM_KEYDOWN;
+        if (fromKeyboard != keyboardFocus) {
+            keyboardFocus = fromKeyboard;
+            HWND focus = GetFocus();
+            if (IsChild(h, focus))
+                InvalidateRect(focus, nullptr, FALSE);
+        }
+    }
     try {
         if (m.message == WM_KEYDOWN) {
             if (composing == m.hwnd)

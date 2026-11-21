@@ -54,6 +54,15 @@ struct LibraryWindow {
     HWND composing{};
     EditorState editor;
     bool editing = false, ready = false, loading = false;
+    bool keyboardFocus = false;
+    BOOL animations = TRUE;
+    HWND motionButton{};
+    bool motionPressed{};
+    ULONGLONG motionStart{};
+    float motionFrom{};
+    float motionDepth(ULONGLONG now) const;
+    float pressDepth(HWND button, bool pressed);
+    void advancePress();
     int width = 900, height = 580, split = 302, visibleTags = 0;
     explicit LibraryWindow(const std::filesystem::path &path) : store(path) {}
     ~LibraryWindow();

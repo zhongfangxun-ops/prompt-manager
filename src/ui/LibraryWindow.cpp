@@ -188,6 +188,8 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM w, LPARAM l) {
                 v->command(LOWORD(w), HIWORD(w));
             return 0;
         case WM_TIMER:
+            if (w == 10)
+                v->advancePress();
             if (w == 9) {
                 KillTimer(h, 9);
                 v->notice.clear();
@@ -275,6 +277,9 @@ void LibraryWindow::create() {
 }
 void LibraryWindow::style() {
     colors = Palette(readSetting(L"Theme", L"light") == L"dark");
+    SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &animations, 0);
+    KillTimer(h, 10);
+    motionButton = nullptr;
     DeleteObject(backdropBitmap);
     backdropBitmap = nullptr;
     DeleteObject(paperBrush);
