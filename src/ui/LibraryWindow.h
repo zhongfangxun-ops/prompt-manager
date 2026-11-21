@@ -36,8 +36,9 @@ struct LibraryWindow {
     PromptStore store;
     Palette colors;
     UINT dpi = 96;
-    std::array<HFONT, 4> fonts{};
-    std::array<std::unique_ptr<Gdiplus::Font>, 4> labelFonts;
+    const wchar_t *hanFace = L"SimSun";
+    std::array<HFONT, 8> fonts{};
+    std::array<std::unique_ptr<Gdiplus::Font>, 8> labelFonts;
     void label(HDC dc, std::wstring_view text, RECT bounds, size_t fontIndex, COLORREF color,
                UINT flags = DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS) const;
     HBITMAP backdropBitmap{};

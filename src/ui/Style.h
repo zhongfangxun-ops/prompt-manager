@@ -69,10 +69,30 @@ inline void surface(HDC dc, RECT r, float radius, Gdiplus::Color top, Gdiplus::C
 inline void rounded(HDC dc, RECT r, int radius, COLORREF bg, COLORREF line) {
     surface(dc, r, float(radius), tone(bg), tone(bg), tone(line));
 }
-inline HFONT fontAt(int px, int weight, UINT dpi) {
+inline bool installedFace(HDC dc, const wchar_t *name) {
+    LOGFONTW query{};
+    query.lfCharSet = DEFAULT_CHARSET;
+    lstrcpynW(query.lfFaceName, name, LF_FACESIZE);
+    bool found = false;
+    EnumFontFamiliesExW(
+        dc, &query,
+        [](const LOGFONTW *, const TEXTMETRICW *, DWORD, LPARAM data) -> int {
+            *reinterpret_cast<bool *>(data) = true;
+            return 0;
+        },
+        reinterpret_cast<LPARAM>(&found), 0);
+    return found;
+}
+inline size_t serifIndex(size_t role, std::wstring_view text) {
+    // Keep mixed-language passages in a single family with Han glyphs and matching Latin metrics.
+    const bool latin = !text.empty() && std::all_of(text.begin(), text.end(), [](wchar_t c) {
+        return c <= 0x024f || (c >= 0x2000 && c <= 0x206f);
+    });
+    return role + (latin ? 4 : 0);
+}
+inline HFONT fontAt(const wchar_t *face, int px, int weight, UINT dpi) {
     return CreateFontW(-MulDiv(px, dpi, 96), 0, 0, 0, weight, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-                       OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH,
-                       L"Microsoft YaHei UI");
+                       OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH, face);
 }
 inline std::wstring valueOf(HWND h) {
     int n = GetWindowTextLengthW(h);

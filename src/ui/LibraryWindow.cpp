@@ -268,9 +268,19 @@ void LibraryWindow::style() {
     paperBrush = CreateSolidBrush(colors.paper);
     railBrush = CreateSolidBrush(colors.rail);
     auto old = fonts;
-    fonts = {fontAt(14, FW_NORMAL, dpi), fontAt(14, FW_SEMIBOLD, dpi), fontAt(25, FW_NORMAL, dpi),
-             fontAt(16, FW_NORMAL, dpi)};
     HDC dc = GetDC(h);
+    hanFace = installedFace(dc, L"Noto Serif SC")         ? L"Noto Serif SC"
+              : installedFace(dc, L"Source Han Serif SC") ? L"Source Han Serif SC"
+              : installedFace(dc, L"STSong")              ? L"STSong"
+                                                          : L"SimSun";
+    const wchar_t *latinFace = installedFace(dc, L"Anthropic Serif") ? L"Anthropic Serif" : L"Georgia";
+    size_t slot = 0;
+    for (auto face : {hanFace, latinFace}) {
+        fonts[slot++] = fontAt(face, 14, FW_NORMAL, dpi);
+        fonts[slot++] = fontAt(face, 14, FW_MEDIUM, dpi);
+        fonts[slot++] = fontAt(face, 27, face == hanFace ? FW_MEDIUM : FW_NORMAL, dpi);
+        fonts[slot++] = fontAt(face, 17, face == hanFace ? FW_MEDIUM : FW_NORMAL, dpi);
+    }
     for (size_t i = 0; i < fonts.size(); ++i) {
         labelFonts[i] = std::make_unique<Gdiplus::Font>(dc, fonts[i]);
         if (labelFonts[i]->GetLastStatus() != Gdiplus::Ok)
@@ -281,7 +291,10 @@ void LibraryWindow::style() {
         auto id = GetDlgCtrlID(c);
         if (id == List || id == Body || id == BodyInput || id == Search || id == TagInput)
             SetWindowTheme(c, colors.dark ? L"DarkMode_Explorer" : nullptr, nullptr);
-        SendMessageW(c, WM_SETFONT, (WPARAM)fonts[(id == Body || id == BodyInput) ? 3 : 0], FALSE);
+        size_t role = id == Body || id == BodyInput ? 3 : 0;
+        if (id == Body && current)
+            role = serifIndex(role, current->body);
+        SendMessageW(c, WM_SETFONT, (WPARAM)fonts[role], FALSE);
     }
     for (auto f : old)
         DeleteObject(f);
@@ -326,6 +339,7 @@ void LibraryWindow::layout() {
     for (int i = 0; i < 4; i++) {
         if (i < (int)tags.size()) {
             SIZE size;
+            SelectObject(dc, fonts[serifIndex(0, tags[i].name)]);
             GetTextExtentPoint32W(dc, tags[i].name.c_str(), tags[i].name.size(), &size);
             int cw = std::clamp(MulDiv(size.cx, 96, dpi) + 20, 42, 104);
             bool more = i + 1 < (int)tags.size();

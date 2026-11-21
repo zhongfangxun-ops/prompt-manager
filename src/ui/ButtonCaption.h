@@ -2,14 +2,15 @@
 #include "ui/Style.h"
 #include <string_view>
 
-inline bool drawButtonCaption(HDC dc, RECT button, UINT dpi, COLORREF color, std::wstring_view caption) {
+inline bool drawButtonCaption(HDC dc, RECT button, UINT dpi, COLORREF color, std::wstring_view caption,
+                              const wchar_t *face) {
     using namespace Gdiplus;
     constexpr std::wstring_view prefix = L"＋ ";
     const bool hasPlus = caption.starts_with(prefix);
     if (hasPlus)
         caption.remove_prefix(prefix.size());
     const float scale = dpi / 96.f;
-    FontFamily family(L"Microsoft YaHei UI");
+    FontFamily family(face);
     GraphicsPath text;
     if (family.GetLastStatus() != Ok ||
         text.AddString(caption.data(), int(caption.size()), &family, FontStyleRegular, 14.5f * scale,

@@ -57,6 +57,7 @@ void LibraryWindow::label(HDC dc, std::wstring_view text, RECT r, size_t index, 
                           UINT flags) const {
     if (text.empty() || r.right <= r.left || r.bottom <= r.top)
         return;
+    index = serifIndex(index, text);
     using namespace Gdiplus;
     if (labelFonts[index]) {
         Graphics canvas(dc);
@@ -140,6 +141,7 @@ void LibraryWindow::paint() {
         auto prev = SelectObject(dc, fonts[0]);
         for (auto &name : names) {
             SIZE sz{};
+            SelectObject(dc, fonts[serifIndex(0, name)]);
             GetTextExtentPoint32W(dc, name.data(), int(name.size()), &sz);
             int available = x + rw - left;
             if (available < 35)
@@ -285,7 +287,7 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
     const COLORREF ink = primary || (colors.contrast && (selected || pressed)) ? colors.reverse
                          : tag && !selected                                    ? colors.muted
                                                                                : colors.ink;
-    if (tag || !drawButtonCaption(dc, r, dpi, ink, caption))
+    if (tag || !drawButtonCaption(dc, r, dpi, ink, caption, hanFace))
         label(dc, caption, r, primary || selected ? 1 : 0, ink,
               DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     if (d.itemState & ODS_FOCUS) {

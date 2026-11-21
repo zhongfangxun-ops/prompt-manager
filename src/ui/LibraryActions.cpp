@@ -28,6 +28,8 @@ void LibraryWindow::reloadTags() {
 }
 void LibraryWindow::showDetail() {
     layout();
+    if (current)
+        SendMessageW(item(Body), WM_SETFONT, (WPARAM)fonts[serifIndex(3, current->body)], FALSE);
     SetWindowTextW(item(Body), current ? windowsLines(current->body).c_str() : L"");
     SetWindowTextW(item(EmptyAction),
                    category || !valueOf(item(Search)).empty() ? L"清除筛选" : L"新建第一条提示词");
