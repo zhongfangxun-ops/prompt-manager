@@ -56,16 +56,8 @@ inline void rounded(HDC dc, RECT r, int radius, COLORREF bg, COLORREF line) {
 }
 inline HFONT fontAt(int px, int weight, UINT dpi) {
     return CreateFontW(-MulDiv(px, dpi, 96), 0, 0, 0, weight, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-                       OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH,
+                       OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH,
                        L"Microsoft YaHei UI");
-}
-inline void label(HDC dc, std::wstring_view text, RECT r, HFONT font, COLORREF color,
-                  UINT flags = DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS) {
-    auto old = SelectObject(dc, font);
-    SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, color);
-    DrawTextW(dc, text.data(), int(text.size()), &r, flags | DT_NOPREFIX);
-    SelectObject(dc, old);
 }
 inline std::wstring valueOf(HWND h) {
     int n = GetWindowTextLengthW(h);

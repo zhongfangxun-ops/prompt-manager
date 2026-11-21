@@ -48,6 +48,32 @@ void copyGlyph(HDC dc, RECT r, int unit, COLORREF color) {
     g.DrawLines(&pen, back, 5);
 }
 } // namespace
+void LibraryWindow::label(HDC dc, std::wstring_view text, RECT r, size_t index, COLORREF color,
+                          UINT flags) const {
+    if (text.empty() || r.right <= r.left || r.bottom <= r.top)
+        return;
+    using namespace Gdiplus;
+    if (labelFonts[index]) {
+        Graphics canvas(dc);
+        canvas.SetPageUnit(UnitPixel);
+        canvas.SetTextRenderingHint(TextRenderingHintAntiAlias);
+        StringFormat format(StringFormatFlagsNoWrap);
+        format.SetLineAlignment(StringAlignmentCenter);
+        format.SetAlignment((flags & DT_CENTER) ? StringAlignmentCenter : StringAlignmentNear);
+        format.SetTrimming((flags & DT_END_ELLIPSIS) ? StringTrimmingEllipsisCharacter
+                                                     : StringTrimmingNone);
+        SolidBrush ink(tone(color));
+        RectF box(float(r.left), float(r.top), float(r.right - r.left), float(r.bottom - r.top));
+        if (canvas.DrawString(text.data(), static_cast<INT>(text.size()), labelFonts[index].get(), box,
+                              &format, &ink) == Ok)
+            return;
+    }
+    auto old = SelectObject(dc, fonts[index]);
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, color);
+    DrawTextW(dc, text.data(), static_cast<int>(text.size()), &r, flags | DT_NOPREFIX);
+    SelectObject(dc, old);
+}
 void LibraryWindow::paintBackdrop(HDC dc, RECT bounds) {
     HDC memory = CreateCompatibleDC(dc);
     if (!memory) {
@@ -91,7 +117,7 @@ void LibraryWindow::paint() {
     auto frame = [&](int x, int y, int w, int ht) {
         rounded(dc, rect(x, y, w, ht), px(12), colors.paper, colors.line);
     };
-    label(dc, L"提示词库", rect(106, 10, 110, 34), fonts[1], colors.ink);
+    label(dc, L"提示词库", rect(106, 10, 110, 34), 1, colors.ink);
     frame(27, 83, split - 56, 42);
     {
         Gdiplus::Graphics g(dc);
@@ -102,7 +128,7 @@ void LibraryWindow::paint() {
         g.DrawLine(&pen, 47, 107, 51, 111);
     }
     auto count = L"提示词  ·  " + std::to_wstring(rows.size());
-    label(dc, count, rect(36, 176, split - 70, 27), fonts[1], colors.muted);
+    label(dc, count, rect(36, 176, split - 70, 27), 1, colors.muted);
     int x = split + 36, rw = width - x - 43;
     auto badges = [&](const std::vector<std::wstring> &names, int y) {
         int left = x;
@@ -116,22 +142,22 @@ void LibraryWindow::paint() {
             int w = std::min(available, MulDiv(sz.cx, 96, dpi) + 24);
             RECT badge = rect(left, y, w, 24);
             rounded(dc, badge, px(12), colors.rail, colors.contrast ? colors.line : colors.rail);
-            label(dc, name, badge, fonts[0], colors.muted,
+            label(dc, name, badge, 0, colors.muted,
                   DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
             left += w + 6;
         }
         SelectObject(dc, prev);
     };
     if (editing) {
-        label(dc, L"标题", rect(x, 90, rw, 28), fonts[1], colors.muted);
+        label(dc, L"标题", rect(x, 90, rw, 28), 1, colors.muted);
         frame(x, 121, rw, 42);
-        label(dc, L"分类标签", rect(x, 173, rw, 25), fonts[1], colors.muted);
+        label(dc, L"分类标签", rect(x, 173, rw, 25), 1, colors.muted);
         frame(x, 199, rw - 114, 36);
-        label(dc, joined(editor.tags), rect(x, 236, rw, 27), fonts[0], colors.accent);
-        label(dc, L"正文", rect(x, 271, rw, 28), fonts[1], colors.muted);
+        label(dc, joined(editor.tags), rect(x, 236, rw, 27), 0, colors.accent);
+        label(dc, L"正文", rect(x, 271, rw, 28), 1, colors.muted);
         frame(x, 300, rw, height - 335);
     } else if (current) {
-        label(dc, current->title, rect(x, 99, rw, 47), fonts[2], colors.ink);
+        label(dc, current->title, rect(x, 99, rw, 47), 2, colors.ink);
         badges(current->tags, 149);
         fill(dc, rect(x, 182, rw, 1), colors.line);
     } else {
@@ -140,15 +166,14 @@ void LibraryWindow::paint() {
         RECT mark = rect(x + rw / 2 - 25, cy - 68, 50, 50);
         surface(dc, mark, px(17), tone(colors.rail), tone(colors.tint), tone(colors.paper));
         copyGlyph(dc, mark, px(24), colors.accent);
-        label(dc, filtered ? L"没有匹配的提示词" : L"还没有提示词", rect(x, cy - 8, rw, 36), fonts[2],
+        label(dc, filtered ? L"没有匹配的提示词" : L"还没有提示词", rect(x, cy - 8, rw, 36), 2,
               colors.ink, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     }
     if (!notice.empty()) {
         int w = std::min(width - 430, 240);
         auto r = rect(185, 16, w, 30);
         rounded(dc, r, px(12), colors.tint, colors.line);
-        label(dc, notice, r, fonts[1], colors.accent,
-              DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+        label(dc, notice, r, 1, colors.accent, DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     }
     EndPaint(h, &ps);
 }
@@ -169,12 +194,11 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
         auto title = r;
         title.left += px(13);
         title.right -= px(55);
-        label(dc, row.title, title, fonts[selected ? 1 : 0], colors.ink);
+        label(dc, row.title, title, selected ? 1 : 0, colors.ink);
         auto action = r;
         action.left = action.right - px(43);
         if (copied == row.id)
-            label(dc, L"已复制", action, fonts[0], colors.accent,
-                  DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            label(dc, L"已复制", action, 0, colors.accent, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         else
             copyGlyph(dc, action, px(15), selected ? colors.accent : colors.muted);
         if (d.itemState & ODS_FOCUS) {
@@ -244,7 +268,7 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
                 tone(base, colors.contrast ? 255 : 112),
                 tone(colors.contrast ? colors.line : colors.paper));
     }
-    label(dc, valueOf(d.hwndItem), r, fonts[primary || selected ? 1 : 0],
+    label(dc, valueOf(d.hwndItem), r, primary || selected ? 1 : 0,
           primary ? colors.reverse : (tag && !selected ? colors.muted : colors.ink),
           DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     if (d.itemState & ODS_FOCUS) {

@@ -34,6 +34,9 @@ struct LibraryWindow {
     Palette colors;
     UINT dpi = 96;
     std::array<HFONT, 4> fonts{};
+    std::array<std::unique_ptr<Gdiplus::Font>, 4> labelFonts;
+    void label(HDC dc, std::wstring_view text, RECT bounds, size_t fontIndex, COLORREF color,
+               UINT flags = DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS) const;
     HBITMAP backdropBitmap{};
     SIZE backdropSize{};
     void paintBackdrop(HDC dc, RECT bounds);

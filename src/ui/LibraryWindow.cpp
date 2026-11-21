@@ -168,6 +168,8 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM w, LPARAM l) {
                 DestroyWindow(h);
             return 0;
         case WM_NCDESTROY:
+            // The shell can shut down GDI+ before releasing the library's C++ state.
+            v->labelFonts = {};
             PostThreadMessageW(GetCurrentThreadId(), WM_NULL, 0, 0);
             SetWindowLongPtrW(h, GWLP_USERDATA, 0);
             return DefWindowProcW(h, msg, w, l);
@@ -243,8 +245,15 @@ void LibraryWindow::style() {
     paperBrush = CreateSolidBrush(colors.paper);
     railBrush = CreateSolidBrush(colors.rail);
     auto old = fonts;
-    fonts = {fontAt(14, FW_NORMAL, dpi), fontAt(14, FW_SEMIBOLD, dpi), fontAt(25, FW_SEMIBOLD, dpi),
+    fonts = {fontAt(14, FW_NORMAL, dpi), fontAt(14, FW_SEMIBOLD, dpi), fontAt(25, FW_NORMAL, dpi),
              fontAt(16, FW_NORMAL, dpi)};
+    HDC dc = GetDC(h);
+    for (size_t i = 0; i < fonts.size(); ++i) {
+        labelFonts[i] = std::make_unique<Gdiplus::Font>(dc, fonts[i]);
+        if (labelFonts[i]->GetLastStatus() != Gdiplus::Ok)
+            labelFonts[i].reset();
+    }
+    ReleaseDC(h, dc);
     for (HWND c = GetWindow(h, GW_CHILD); c; c = GetWindow(c, GW_HWNDNEXT)) {
         auto id = GetDlgCtrlID(c);
         SendMessageW(c, WM_SETFONT, (WPARAM)fonts[(id == Body || id == BodyInput) ? 3 : 0], FALSE);
