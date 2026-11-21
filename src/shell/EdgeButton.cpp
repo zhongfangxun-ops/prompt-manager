@@ -23,8 +23,7 @@ MONITORINFOEXW info(HMONITOR m) {
     GetMonitorInfoW(m, &v);
     return v;
 }
-bool full() {
-    HWND f = GetForegroundWindow();
+bool full(HWND f) {
     if (!f || IsIconic(f) || f == GetDesktopWindow() || f == GetShellWindow())
         return false;
     DWORD pid;
@@ -44,9 +43,26 @@ bool full() {
     return coversMonitor(r, m, GetWindowLongPtrW(f, GWL_STYLE), IsZoomed(f));
 }
 void visibility() {
-    bool display = shouldShow(wanted, full());
+    HWND foreground = GetForegroundWindow();
+    bool fullscreen = wanted && full(foreground);
+    bool keepAbove = false;
+    if (fullscreen) {
+        DWORD pid = 0;
+        GetWindowThreadProcessId(foreground, &pid);
+        HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (process) {
+            wchar_t path[32768];
+            DWORD length = ARRAYSIZE(path);
+            if (QueryFullProcessImageNameW(process, 0, path, &length))
+                keepAbove = keepsFullscreenLauncher({path, length});
+            CloseHandle(process);
+        }
+    }
+    bool display = shouldShow(wanted, fullscreen && !keepAbove);
     if (bool(IsWindowVisible(button)) != display)
         ShowWindow(button, display ? SW_SHOWNOACTIVATE : SW_HIDE);
+    if (keepAbove)
+        SetWindowPos(button, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 void CALLBACK event(HWINEVENTHOOK, DWORD type, HWND h, LONG object, LONG child, DWORD, DWORD) {
     if (type == EVENT_SYSTEM_FOREGROUND ||

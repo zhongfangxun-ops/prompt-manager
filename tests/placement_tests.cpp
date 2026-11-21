@@ -1,6 +1,10 @@
 #include "shell/Placement.h"
 #include <stdexcept>
 int main() {
+    if (!keepsFullscreenLauncher(L"C:/Program Files/Google/Chrome/Application/CHROME.EXE") ||
+        !keepsFullscreenLauncher(LR"(C:\Apps\ChatGPT.exe)") ||
+        keepsFullscreenLauncher(L"chrome.exe.bak") || keepsFullscreenLauncher(L"msedge.exe"))
+        throw std::runtime_error("fullscreen launcher application names");
     RECT screen{0, 0, 2560, 1600};
     if (coversMonitor({-11, -11, 2571, 1611}, screen, WS_OVERLAPPEDWINDOW, false) ||
         !coversMonitor(screen, screen, WS_POPUP, false))

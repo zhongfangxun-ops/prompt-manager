@@ -2,9 +2,18 @@
 #include <windows.h>
 #include <algorithm>
 #include <array>
+#include <string_view>
 struct Anchor {
     int side = 1, fraction = 5000;
 };
+inline bool keepsFullscreenLauncher(std::wstring_view path) {
+    const auto name = path.substr(path.find_last_of(L"\\/") + 1);
+    for (auto app : {L"ChatGPT.exe", L"chrome.exe"}) {
+        if (!name.empty() && CompareStringOrdinal(name.data(), static_cast<int>(name.size()), app, -1, TRUE) == CSTR_EQUAL)
+            return true;
+    }
+    return false;
+}
 inline bool shouldShow(bool visible, bool fullscreen) { return visible && !fullscreen; }
 inline POINT resolveAnchor(RECT r, Anchor a, int w, int h) {
     int dx = std::max(0L, r.right - r.left - w), dy = std::max(0L, r.bottom - r.top - h);
