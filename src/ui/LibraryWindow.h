@@ -23,6 +23,9 @@ enum Control {
     Cancel,
     DeleteEntry,
     CopyEntry,
+    CloseWindowButton,
+    MinimizeWindowButton,
+    ZoomWindowButton,
     FilterFirst = 130
 };
 struct LibraryWindow {

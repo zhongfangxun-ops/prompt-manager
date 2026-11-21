@@ -73,6 +73,21 @@ def automation(exe,case):
                 u.PostMessageW(tag,0x100,27,0);time.sleep(.08);assert u.IsWindow(w) and not byprefix(p.pid,"#32770")
                 u.SendMessageW(tag,0x10E,0,0);text(ctrl(111),"已保存");cmd(114)
             elif case=="flow":
+                # The unified title bar must let native buttons receive pointer input.
+                import win32gui
+                def hit(point):
+                    x,y=point
+                    return u.SendMessageW(w,0x84,0,((y & 65535)<<16)|(x & 65535))
+                left,top,right,bottom=win32gui.GetWindowRect(ctrl(120))
+                assert hit(((left+right)//2,(top+bottom)//2))==1
+                width=win32gui.GetClientRect(w)[2]
+                assert hit(win32gui.ClientToScreen(w,(width//2,(bottom-top)//2)))==2
+                u.SendMessageW(ctrl(120),0xF5,0,0);assert u.IsZoomed(w)
+                u.SendMessageW(ctrl(120),0xF5,0,0);assert not u.IsZoomed(w)
+                u.SendMessageW(ctrl(119),0xF5,0,0);assert u.IsIconic(w)
+                u.ShowWindow(w,9)
+                u.SendMessageW(ctrl(118),0xF5,0,0);until(lambda:not u.IsWindow(w))
+                w=open_view()
                 cmd(130);text(ctrl(101),"无匹配");assert u.SendMessageW(ctrl(102),0x18b,0,0)==0 and not read(ctrl(106))
                 cmd(109);text(ctrl(101),"保留术语");assert read(ctrl(106))==body
                 cmd(104);text(ctrl(112),"写作");cmd(114)

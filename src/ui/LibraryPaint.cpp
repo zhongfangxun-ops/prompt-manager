@@ -86,16 +86,12 @@ void LibraryWindow::paint() {
         }
         rounded(dc, r, px(23), color, colors.contrast ? colors.line : RGB(255, 255, 255));
     };
-    panel(rect(14, 70, split - 23, height - 85), colors.rail);
-    panel(rect(split + 2, 70, width - split - 17, height - 85), colors.paper);
+    panel(rect(14, 57, split - 23, height - 72), colors.rail);
+    panel(rect(split + 2, 57, width - split - 17, height - 72), colors.paper);
     auto frame = [&](int x, int y, int w, int ht) {
         rounded(dc, rect(x, y, w, ht), px(12), colors.paper, colors.line);
     };
-    auto logo = rect(28, 18, 39, 39);
-    surface(dc, logo, px(13), tone(colors.contrast ? colors.accent : RGB(137, 165, 248)),
-            tone(colors.accent), tone(colors.paper));
-    copyGlyph(dc, logo, px(19), colors.reverse);
-    label(dc, L"提示词库", rect(78, 15, 150, 43), fonts[2], colors.ink);
+    label(dc, L"提示词库", rect(106, 10, 110, 34), fonts[1], colors.ink);
     frame(27, 83, split - 56, 42);
     {
         Gdiplus::Graphics g(dc);
@@ -211,6 +207,30 @@ bool LibraryWindow::draw(const DRAWITEMSTRUCT &d) {
         GetClientRect(h, &bounds);
         paintBackdrop(dc, bounds);
         RestoreDC(dc, state);
+    }
+    if (id == CloseWindowButton || id == MinimizeWindowButton || id == ZoomWindowButton) {
+        using namespace Gdiplus;
+        Graphics g(dc);
+        g.SetSmoothingMode(SmoothingModeAntiAlias);
+        g.ScaleTransform(dpi / 96.f, dpi / 96.f);
+        COLORREF color = id == CloseWindowButton      ? RGB(241, 110, 106)
+                         : id == MinimizeWindowButton ? RGB(245, 192, 82)
+                                                      : RGB(99, 193, 129);
+        SolidBrush brush(tone(colors.contrast ? colors.paper : color));
+        Pen rim(tone(colors.contrast ? colors.ink : color), 1.f);
+        g.FillEllipse(&brush, 5, 9, 14, 14);
+        g.DrawEllipse(&rim, 5, 9, 14, 14);
+        Pen ink(tone(colors.contrast ? colors.ink : RGB(65, 62, 65)), 1.15f);
+        if (id == CloseWindowButton) {
+            g.DrawLine(&ink, 9, 13, 15, 19);
+            g.DrawLine(&ink, 15, 13, 9, 19);
+        } else if (id == MinimizeWindowButton)
+            g.DrawLine(&ink, 8, 16, 16, 16);
+        else
+            g.DrawRectangle(&ink, 9, 13, 6, 6);
+        if (d.itemState & ODS_FOCUS)
+            DrawFocusRect(dc, &r);
+        return true;
     }
     InflateRect(&r, -1, -1);
     bool pressed = (d.itemState & ODS_SELECTED) != 0;

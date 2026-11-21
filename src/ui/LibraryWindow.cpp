@@ -1,6 +1,7 @@
 #include "ui/LibraryWindow.h"
 #include "platform/Clipboard.h"
 #include <dwmapi.h>
+#include <windowsx.h>
 #include <shellscalingapi.h>
 namespace {
 constexpr wchar_t className[] = L"PromptManager.Library";
@@ -50,6 +51,36 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM w, LPARAM l) {
         return DefWindowProcW(h, msg, w, l);
     try {
         switch (msg) {
+        case WM_NCCALCSIZE: {
+            // Keep the resize frame and maximized work area supplied by Windows.
+            auto client = reinterpret_cast<RECT *>(l);
+            const LONG top = client->top;
+            DefWindowProcW(h, msg, w, l);
+            UINT dpi = GetDpiForWindow(h);
+            int inset = GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) +
+                        GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+            client->top = top + (IsZoomed(h) ? inset : 0);
+            return 0;
+        }
+        case WM_NCHITTEST: {
+            POINT pt{GET_X_LPARAM(l), GET_Y_LPARAM(l)};
+            ScreenToClient(h, &pt);
+            RECT bounds;
+            GetClientRect(h, &bounds);
+            if (pt.y >= 0 && pt.y < v->px(5) && !IsZoomed(h)) {
+                if (pt.x < v->px(7))
+                    return HTTOPLEFT;
+                if (pt.x >= bounds.right - v->px(7))
+                    return HTTOPRIGHT;
+                return HTTOP;
+            }
+            if (PtInRect(&bounds, pt)) {
+                if (pt.y < v->px(57) && ChildWindowFromPointEx(h, pt, CWP_SKIPINVISIBLE) == h)
+                    return HTCAPTION;
+                return HTCLIENT;
+            }
+            return DefWindowProcW(h, msg, w, l);
+        }
         case WM_CREATE:
             v->create();
             return 0;
@@ -103,6 +134,19 @@ LRESULT CALLBACK proc(HWND h, UINT msg, WPARAM w, LPARAM l) {
             return (LRESULT)(rail ? v->railBrush : v->paperBrush);
         }
         case WM_COMMAND:
+            if (HIWORD(w) == BN_CLICKED) {
+                switch (LOWORD(w)) {
+                case CloseWindowButton:
+                    PostMessageW(h, WM_CLOSE, 0, 0);
+                    return 0;
+                case MinimizeWindowButton:
+                    ShowWindow(h, SW_MINIMIZE);
+                    return 0;
+                case ZoomWindowButton:
+                    ShowWindow(h, IsZoomed(h) ? SW_RESTORE : SW_MAXIMIZE);
+                    return 0;
+                }
+            }
             if (v->ready && !v->loading)
                 v->command(LOWORD(w), HIWORD(w));
             return 0;
@@ -162,6 +206,9 @@ void LibraryWindow::create() {
     auto btn = [&](int id, const wchar_t *s) { return add(id, L"BUTTON", s, BS_OWNERDRAW); };
     add(Search, L"EDIT", L"", ES_AUTOHSCROLL);
     SendMessageW(item(Search), EM_SETCUEBANNER, TRUE, (LPARAM)L"搜索标题或正文");
+    btn(CloseWindowButton, L"关闭");
+    btn(MinimizeWindowButton, L"最小化");
+    btn(ZoomWindowButton, L"最大化");
     btn(FilterAll, L"全部");
     for (int i = 0; i < 4; i++)
         btn(FilterFirst + i, L"");
@@ -257,13 +304,18 @@ void LibraryWindow::layout() {
     SetWindowTextW(item(FilterMore), L"···");
     move(FilterMore, tx, 135, 33, 28, visibleTags < (int)tags.size());
     move(List, 24, 211, split - 48, height - 243, true);
-    move(New, width - 119, 20, 87, 35, !editing);
-    move(Edit, width - 203, 20, 72, 35, !editing && current.has_value());
-    move(More, width - 263, 20, 52, 35, !editing && current.has_value());
-    move(Cancel, width - 199, 20, 73, 35, editing);
-    move(Save, width - 116, 20, 83, 35, editing);
+    move(CloseWindowButton, 17, 11, 24, 32, true);
+    move(MinimizeWindowButton, 41, 11, 24, 32, true);
+    move(ZoomWindowButton, 65, 11, 24, 32, true);
+    SetWindowTextW(item(ZoomWindowButton), IsZoomed(h) ? L"还原" : L"最大化");
+    move(New, width - 119, 11, 87, 32, !editing);
+    move(Edit, width - 203, 11, 72, 32, !editing && current.has_value());
+    move(More, width - 263, 11, 52, 32, !editing && current.has_value());
+    move(Cancel, width - 199, 11, 73, 32, editing);
+    move(Save, width - 116, 11, 83, 32, editing);
     move(Body, x, 196, rw, height - 243, !editing && current.has_value());
-    move(EmptyAction, x + (rw - 168) / 2, (height + 70) / 2 + 34, 168, 36, !editing && !current.has_value());
+    move(EmptyAction, x + (rw - 168) / 2, (height + 70) / 2 + 34, 168, 36,
+         !editing && !current.has_value());
     move(TitleInput, x + 11, 132, rw - 18, 25, editing);
     move(TagInput, x + 11, 207, rw - 126, 24, editing);
     move(TagMenu, width - 149, 202, 104, 33, editing);
@@ -294,10 +346,10 @@ HWND openLibrary(HWND) {
     GetDpiForMonitor(m, MDT_EFFECTIVE_DPI, &dpi, &dy);
     int w = std::min<int>(r.right - r.left, MulDiv(980, dpi, 96)),
         ht = std::min<int>(r.bottom - r.top, MulDiv(650, dpi, 96));
-    auto h =
-        CreateWindowExW(WS_EX_CONTROLPARENT, className, L"提示词", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
-                        r.left + (r.right - r.left - w) / 2, r.top + (r.bottom - r.top - ht) / 2, w, ht,
-                        nullptr, nullptr, wc.hInstance, active.get());
+    auto h = CreateWindowExW(WS_EX_CONTROLPARENT, className, L"提示词库",
+                             WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, r.left + (r.right - r.left - w) / 2,
+                             r.top + (r.bottom - r.top - ht) / 2, w, ht, nullptr, nullptr, wc.hInstance,
+                             active.get());
     if (!h) {
         active.reset();
         throw std::runtime_error("无法打开管理窗口。");
